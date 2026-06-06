@@ -1,38 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Section, Card, Badge, Button, FadeInView } from '@/components/ui';
 import { ArrowRight, Zap, Shield, BarChart3, TrendingDown, Layers, CheckCircle2, ChevronDown, Sparkles, DollarSign, Users, Clock } from 'lucide-react';
-import { useState } from 'react';
+import { useAuth } from '@/lib/auth/auth-context';
+import Navbar from '@/components/Navbar';
 
-/* ─── NAV ─── */
-function Navbar() {
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-[var(--border)]/50 bg-[var(--background)]/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-lg font-bold">AI Spend</span>
-        </Link>
-        <nav className="hidden md:flex items-center gap-8">
-          <a href="#how-it-works" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">How It Works</a>
-          <a href="#features" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">Features</a>
-          <a href="#savings" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">Savings</a>
-          <a href="#faq" className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">FAQ</a>
-        </nav>
-        <Link href="/audit">
-          <Button size="sm">Start Free Audit <ArrowRight className="w-4 h-4" /></Button>
-        </Link>
-      </div>
-    </header>
-  );
-}
-
-/* ─── HERO ─── */
 function Hero() {
+  const { user } = useAuth();
+
   return (
     <section className="pt-40 md:pt-52 pb-20 md:pb-28 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,14 +47,29 @@ function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
         >
-          <Link href="/audit">
-            <Button size="lg">
-              Start Free Audit <ArrowRight className="w-5 h-5" />
-            </Button>
-          </Link>
-          <a href="#how-it-works">
-            <Button variant="outline" size="lg">See How It Works</Button>
-          </a>
+          {user ? (
+            <>
+              <Link href="/dashboard">
+                <Button size="lg">
+                  Go to Dashboard <ArrowRight className="w-5 h-5" />
+                </Button>
+              </Link>
+              <Link href="/audit">
+                <Button variant="outline" size="lg">Start New Audit</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/audit">
+                <Button size="lg">
+                  Start Free Audit <ArrowRight className="w-5 h-5" />
+                </Button>
+              </Link>
+              <a href="#how-it-works">
+                <Button variant="outline" size="lg">See How It Works</Button>
+              </a>
+            </>
+          )}
         </motion.div>
 
         {/* Stats */}

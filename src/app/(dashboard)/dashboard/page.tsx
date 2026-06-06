@@ -34,7 +34,7 @@ interface AuditItem {
 }
 
 export default function DashboardPage() {
-  useAuth();
+  const { user, organization } = useAuth();
   const [audits, setAudits] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,9 +75,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Spend Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Welcome back, {user?.name || user?.email?.split('@')[0] || 'User'}
+          </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            Analyze, monitor, and optimize your organization&apos;s AI subscriptions
+            Analyze, monitor, and optimize AI subscriptions for <strong className="text-[var(--foreground)]">{organization?.name || 'your workspace'}</strong>
           </p>
         </div>
         <Link href="/audit">

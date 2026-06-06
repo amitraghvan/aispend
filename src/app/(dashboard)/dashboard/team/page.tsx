@@ -137,66 +137,62 @@ export default function TeamPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Invite Form */}
-        <div className="space-y-6">
-          <Card className="p-6">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-[var(--primary)]" />
-              Invite Team Member
-            </h2>
+        {/* Left Column: Invite Form (Only visible to OWNER and ADMIN) */}
+        {isAuthorized && (
+          <div className="space-y-6">
+            <Card className="p-6">
+              <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-[var(--primary)]" />
+                Invite Team Member
+              </h2>
 
-            {!isAuthorized && (
-              <div className="p-3 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 text-xs">
-                Only Owners and Administrators can invite new team members.
-              </div>
-            )}
+              {successMsg && (
+                <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs">
+                  <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
 
-            {successMsg && (
-              <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs">
-                <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{successMsg}</span>
-              </div>
-            )}
+              {errorMsg && (
+                <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
-            {errorMsg && (
-              <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleInvite} className="space-y-4">
-              <Input
-                id="invite-email"
-                label="Email Address"
-                type="email"
-                placeholder="colleague@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-                disabled={!isAuthorized || loading}
-              />
-              <Select
-                id="invite-role"
-                label="Workspace Role"
-                options={[
-                  { value: 'MEMBER', label: 'Member (View & Run Audits)' },
-                  { value: 'ADMIN', label: 'Admin (Manage Team & Settings)' },
-                ]}
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as 'ADMIN' | 'MEMBER')}
-                disabled={!isAuthorized || loading}
-              />
-              <Button type="submit" disabled={!isAuthorized || loading || !inviteEmail} className="w-full flex items-center justify-center gap-2">
-                <Mail className="w-4 h-4" />
-                {loading ? 'Sending Invite...' : 'Send Invitation'}
-              </Button>
-            </form>
-          </Card>
-        </div>
+              <form onSubmit={handleInvite} className="space-y-4">
+                <Input
+                  id="invite-email"
+                  label="Email Address"
+                  type="email"
+                  placeholder="colleague@company.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+                <Select
+                  id="invite-role"
+                  label="Workspace Role"
+                  options={[
+                    { value: 'MEMBER', label: 'Member (View & Run Audits)' },
+                    { value: 'ADMIN', label: 'Admin (Manage Team & Settings)' },
+                  ]}
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'ADMIN' | 'MEMBER')}
+                  disabled={loading}
+                />
+                <Button type="submit" disabled={loading || !inviteEmail} className="w-full flex items-center justify-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  {loading ? 'Sending Invite...' : 'Send Invitation'}
+                </Button>
+              </form>
+            </Card>
+          </div>
+        )}
 
         {/* Right Column: Members List */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${isAuthorized ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-6`}>
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold flex items-center gap-2">
@@ -241,7 +237,7 @@ export default function TeamPage() {
                           {member.role !== 'OWNER' && member.email !== user?.email ? (
                             <button
                               onClick={() => handleRemoveMember(member.id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors cursor-pointer"
                               title="Remove Member"
                             >
                               <Trash2 className="w-4 h-4" />
