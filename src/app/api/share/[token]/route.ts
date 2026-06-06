@@ -2,6 +2,9 @@
  * GET /api/share/:token — View a public shared report.
  */
 
+export const dynamic = 'force-dynamic';
+
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { shareService } from '@/features/reports/services/ShareService';

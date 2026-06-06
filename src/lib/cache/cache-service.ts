@@ -25,6 +25,7 @@ export class CacheService {
 
   async get<T>(namespace: string, id: string): Promise<T | null> {
     try {
+      if (!redis) return null;
       const data = await redis.get(this.key(namespace, id));
       if (!data) return null;
       return typeof data === 'string' ? JSON.parse(data) : data as T;
@@ -35,6 +36,7 @@ export class CacheService {
 
   async set<T>(namespace: string, id: string, value: T, ttlSeconds?: number): Promise<void> {
     try {
+      if (!redis) return;
       const serialized = JSON.stringify(value);
       if (ttlSeconds) {
         await redis.set(this.key(namespace, id), serialized, { ex: ttlSeconds });
@@ -48,6 +50,7 @@ export class CacheService {
 
   async invalidate(namespace: string, id: string): Promise<void> {
     try {
+      if (!redis) return;
       await redis.del(this.key(namespace, id));
     } catch {
       // Cache invalidation failures are non-fatal
@@ -56,6 +59,7 @@ export class CacheService {
 
   async invalidatePattern(namespace: string): Promise<void> {
     try {
+      if (!redis) return;
       const pattern = `${this.prefix}:${namespace}:*`;
       const keys = await redis.keys(pattern);
       if (keys.length > 0) {

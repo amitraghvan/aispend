@@ -3,6 +3,9 @@
  * DELETE /api/audits/:id — Soft delete audit.
  */
 
+export const dynamic = 'force-dynamic';
+
+
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { auditRepository } from '@/features/audit/repositories/AuditRepository';

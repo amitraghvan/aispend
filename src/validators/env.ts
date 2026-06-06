@@ -16,32 +16,55 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
-const parseEnv = () => {
-  const result = envSchema.safeParse(process.env);
+/**
+ * Lenient schema used when strict env vars are not configured.
+ * All fields are optional with safe defaults so the app can boot for
+ * local development and build-time without a full .env file.
+ */
+const lenientSchema = z.object({
+  DATABASE_URL: z.string().optional().default(''),
+  DIRECT_URL: z.string().optional().default(''),
+  NEXT_PUBLIC_APP_URL: z.string().optional().default('http://localhost:3000'),
+  SUPABASE_URL: z.string().optional().default(''),
+  SUPABASE_ANON_KEY: z.string().optional().default(''),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(''),
+  ANTHROPIC_API_KEY: z.string().optional().default(''),
+  RESEND_API_KEY: z.string().optional().default(''),
+  UPSTASH_REDIS_URL: z.string().optional().default(''),
+  UPSTASH_REDIS_TOKEN: z.string().optional().default(''),
+  POSTHOG_KEY: z.string().optional().default(''),
+  SENTRY_DSN: z.string().optional().default(''),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+});
 
-  if (!result.success) {
+const parseEnv = () => {
+  // First try strict validation
+  const strict = envSchema.safeParse(process.env);
+
+  if (strict.success) {
+    return strict.data;
+  }
+
+  // In production, strict validation is required
+  if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
     console.error('❌ Invalid Environment Configuration:');
-    const formattedErrors = result.error.format();
+    const formattedErrors = strict.error.format();
     for (const [key, value] of Object.entries(formattedErrors)) {
       if (key !== '_errors') {
         const errors = (value as { _errors: string[] })._errors;
         console.error(`  - ${key}: ${errors.join(', ')}`);
       }
     }
-    
-    if (typeof window === 'undefined') {
-      console.error('Shutting down server due to invalid configuration.');
-      if (typeof process !== 'undefined' && typeof process.exit === 'function') {
-        process.exit(1);
-      } else {
-        throw new Error('Shutting down server due to invalid configuration.');
-      }
-    } else {
-      throw new Error(`Invalid environment variables: ${JSON.stringify(result.error.flatten().fieldErrors)}`);
-    }
+    throw new Error('Invalid environment configuration. See logs above.');
   }
 
-  return result.data;
+  // In dev/build/test, fall back to lenient defaults and warn
+  if (typeof globalThis !== 'undefined' && !(globalThis as Record<string, boolean>).__envWarned) {
+    console.warn('⚠️  Some environment variables are missing. Using lenient defaults for development.');
+    (globalThis as Record<string, boolean>).__envWarned = true;
+  }
+
+  return lenientSchema.parse(process.env);
 };
 
 export const env = parseEnv();

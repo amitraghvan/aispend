@@ -2,6 +2,9 @@
  * POST /api/audits/:id/report — Generate report for an audit.
  */
 
+export const dynamic = 'force-dynamic';
+
+
 import { NextRequest } from 'next/server';
 import { apiCreated, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { auditRepository } from '@/features/audit/repositories/AuditRepository';

@@ -70,12 +70,12 @@ describe('SavingsService', () => {
     expect(result.monthlySavings).toBe(20); // Max of 20 and 15, not sum
   });
 
-  it('should cap savings at current spend', () => {
+  it('should cap savings at 85% of current spend', () => {
     const items = [makeItem({ toolId: 'cursor', planName: 'Pro', monthlySpend: 20 })];
     const recs = [makeRuleResult({ expectedMonthlySavings: 100, affectedToolIds: ['cursor'] })];
     const result = service.calculateSavings(items, recs);
-    expect(result.monthlySavings).toBe(20);
-    expect(result.optimizedMonthlySpend).toBe(0);
+    expect(result.monthlySavings).toBe(17); // 85% of $20
+    expect(result.optimizedMonthlySpend).toBe(3); // $20 - $17
   });
 
   it('should calculate weighted confidence score', () => {

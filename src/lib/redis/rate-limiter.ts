@@ -27,6 +27,11 @@ export async function rateLimit(
   const clearBefore = now - windowMs;
 
   try {
+    if (!redis) {
+      // No Redis configured — fail open (no rate limiting)
+      return { success: true, limit, remaining: limit, reset: 0 };
+    }
+
     const pipeline = redis.pipeline();
     
     // 1. Remove timestamps outside the sliding window
