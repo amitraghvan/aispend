@@ -31,15 +31,15 @@ export class ReportRepository {
     });
   }
 
-  async findByCompanyId(companyId: string, skip: number, take: number) {
+  async findByOrganizationId(organizationId: string, skip: number, take: number) {
     const [data, total] = await prisma.$transaction([
       prisma.report.findMany({
-        where: { companyId, deletedAt: null },
+        where: { organizationId, deletedAt: null },
         skip,
         take,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.report.count({ where: { companyId, deletedAt: null } }),
+      prisma.report.count({ where: { organizationId, deletedAt: null } }),
     ]);
     return { data, total };
   }

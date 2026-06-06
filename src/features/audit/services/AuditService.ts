@@ -17,7 +17,7 @@ export class AuditService {
    */
   async triggerAudit(input: CreateAuditInput): Promise<AuditDomain> {
     logger.info('audit_service_trigger', 'Triggering AI spend audit', {
-      companyId: input.companyId,
+      organizationId: input.organizationId,
       itemsCount: input.items.length,
     });
 
@@ -38,7 +38,7 @@ export class AuditService {
 
     // 3. Database Creation
     const audit = await this.repo.create({
-      company: { connect: { id: input.companyId } },
+      organization: input.organizationId ? { connect: { id: input.organizationId } } : undefined,
       totalSpend,
       potentialSavings: new Prisma.Decimal(0),
       periodStart: input.periodStart,
@@ -89,11 +89,11 @@ export class AuditService {
   }
 
   /**
-   * Retrieves all audits for a company.
+   * Retrieves all audits for an organization.
    */
-  async getCompanyAudits(companyId: string): Promise<AuditDomain[]> {
+  async getOrganizationAudits(organizationId: string): Promise<AuditDomain[]> {
     const { data } = await this.repo.findMany(
-      { companyId },
+      { organizationId },
       { skip: 0, take: 100 }
     );
     return data as unknown as AuditDomain[];

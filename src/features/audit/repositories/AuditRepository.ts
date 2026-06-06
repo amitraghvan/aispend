@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
 export interface AuditFilters {
-  companyId?: string;
+  organizationId?: string;
   status?: string;
   healthScoreMin?: number;
   healthScoreMax?: number;
@@ -32,7 +32,7 @@ export class AuditRepository {
 
   async findMany(filters: AuditFilters, pagination: PaginationOptions) {
     const where: Prisma.AuditWhereInput = { deletedAt: null };
-    if (filters.companyId) where.companyId = filters.companyId;
+    if (filters.organizationId) where.organizationId = filters.organizationId;
     if (filters.status) where.status = filters.status as Prisma.EnumAuditStatusFilter;
     if (filters.healthScoreMin !== undefined || filters.healthScoreMax !== undefined) {
       where.healthScore = {};

@@ -59,11 +59,12 @@ export class CacheService {
 
   async invalidatePattern(namespace: string): Promise<void> {
     try {
-      if (!redis) return;
+      const client = redis;
+      if (!client) return;
       const pattern = `${this.prefix}:${namespace}:*`;
-      const keys = await redis.keys(pattern);
+      const keys = await client.keys(pattern);
       if (keys.length > 0) {
-        await Promise.all(keys.map((k) => redis.del(k)));
+        await Promise.all(keys.map((k) => client.del(k)));
       }
     } catch {
       // Non-fatal

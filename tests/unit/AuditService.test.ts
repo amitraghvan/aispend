@@ -54,7 +54,7 @@ describe('AuditService', () => {
     it('should throw ValidationError if date range is inverted', async () => {
       await expect(
         service.triggerAudit({
-          companyId: 'company-1',
+          organizationId: 'company-1',
           periodStart: new Date('2026-06-30'),
           periodEnd: new Date('2026-06-01'),
           items: [{ toolName: 'OpenAI', spendAmount: new Prisma.Decimal(10.0) }],
@@ -65,7 +65,7 @@ describe('AuditService', () => {
     it('should throw ValidationError if spend items are empty', async () => {
       await expect(
         service.triggerAudit({
-          companyId: 'company-1',
+          organizationId: 'company-1',
           periodStart: new Date('2026-06-01'),
           periodEnd: new Date('2026-06-30'),
           items: [],

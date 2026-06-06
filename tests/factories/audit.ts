@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 export function makeAudit(overrides?: Partial<AuditDomain>): AuditDomain {
   return {
     id: 'audit-uuid-1',
-    companyId: 'company-uuid-1',
+    organizationId: 'company-uuid-1',
     status: 'COMPLETED',
     totalSpend: new Prisma.Decimal(1250.45),
     potentialSavings: new Prisma.Decimal(230.15),

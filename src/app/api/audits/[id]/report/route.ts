@@ -26,7 +26,7 @@ export async function POST(
       return apiServerError('Audit must be completed before generating a report');
     }
 
-    const result = await reportService.generateReport(id, audit.companyId);
+    const result = await reportService.generateReport(id, audit.organizationId);
 
     log.info('api_report_created', `Report generated for audit ${id}`, { reportId: result.reportId });
 

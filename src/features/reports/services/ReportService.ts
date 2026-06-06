@@ -43,7 +43,7 @@ export interface ReportData {
 }
 
 export class ReportService {
-  async generateReport(auditId: string, companyId: string): Promise<{ reportId: string; shareToken: string }> {
+  async generateReport(auditId: string, organizationId?: string | null): Promise<{ reportId: string; shareToken: string }> {
     log.info('report_generate', `Generating report for audit ${auditId}`);
 
     // Fetch audit with all related data
@@ -59,7 +59,7 @@ export class ReportService {
     const shareToken = randomBytes(16).toString('hex');
 
     const report = await reportRepository.create({
-      company: { connect: { id: companyId } },
+      organization: organizationId ? { connect: { id: organizationId } } : undefined,
       audit: { connect: { id: auditId } },
       title: `AI Spend Audit Report — ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
       status: 'COMPLETED',
@@ -72,7 +72,7 @@ export class ReportService {
     await cacheService.setReport(report.id, reportData);
 
     await eventBus.publish('report.generated', {
-      reportId: report.id, auditId, companyId, shareToken,
+      reportId: report.id, auditId, organizationId, shareToken,
     });
 
     log.info('report_complete', `Report generated: ${report.id}`, { reportId: report.id, auditId });

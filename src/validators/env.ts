@@ -59,9 +59,9 @@ const parseEnv = () => {
   }
 
   // In dev/build/test, fall back to lenient defaults and warn
-  if (typeof globalThis !== 'undefined' && !(globalThis as Record<string, boolean>).__envWarned) {
+  if (typeof globalThis !== 'undefined' && !(globalThis as unknown as Record<string, boolean>).__envWarned) {
     console.warn('⚠️  Some environment variables are missing. Using lenient defaults for development.');
-    (globalThis as Record<string, boolean>).__envWarned = true;
+    (globalThis as unknown as Record<string, boolean>).__envWarned = true;
   }
 
   return lenientSchema.parse(process.env);

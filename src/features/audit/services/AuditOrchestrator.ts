@@ -21,7 +21,7 @@ import { logger } from '@/lib/logger/logger';
 import { randomUUID } from 'crypto';
 
 export interface CreateAuditRequest {
-  companyId: string;
+  organizationId?: string;
   items: Array<{
     toolId: string;
     toolName: string;
@@ -37,7 +37,7 @@ export interface CreateAuditRequest {
 
 export interface AuditResponse {
   auditId: string;
-  companyId: string;
+  organizationId?: string;
   status: string;
   currentSpend: number;
   optimizedSpend: number;
@@ -64,7 +64,7 @@ export class AuditOrchestrator {
 
   async processAudit(request: CreateAuditRequest): Promise<AuditResponse> {
     const correlationId = randomUUID();
-    log.info('audit_start', `Starting audit for company ${request.companyId}`, { correlationId, itemCount: request.items.length });
+    log.info('audit_start', `Starting audit for organization ${request.organizationId}`, { correlationId, itemCount: request.items.length });
 
     // 1. Create audit record in PROCESSING state
     const now = new Date();
@@ -73,7 +73,7 @@ export class AuditOrchestrator {
 
     const audit = await prisma.audit.create({
       data: {
-        companyId: request.companyId,
+        organizationId: request.organizationId,
         status: 'PROCESSING',
         totalSpend: new Prisma.Decimal(0),
         potentialSavings: new Prisma.Decimal(0),
@@ -84,12 +84,12 @@ export class AuditOrchestrator {
       },
     });
 
-    await eventBus.publish('audit.processing', { auditId: audit.id, companyId: request.companyId }, correlationId);
+    await eventBus.publish('audit.processing', { auditId: audit.id, organizationId: request.organizationId }, correlationId);
 
     try {
       // 2. Execute audit engine
       const engineInput = {
-        companyId: request.companyId,
+        companyId: request.organizationId ?? 'unknown',
         items: request.items.map((item) => ({
           toolId: item.toolId,
           planName: item.planName,
@@ -163,20 +163,20 @@ export class AuditOrchestrator {
       // 7. Emit completion event
       await eventBus.publish('audit.completed', {
         auditId: audit.id,
-        companyId: request.companyId,
+        organizationId: request.organizationId,
         healthScore: result.healthScore.overallScore,
         monthlySavings: result.monthlySavings,
         recommendationCount: result.recommendations.length,
       }, correlationId);
 
-      log.info('audit_complete', `Audit completed for ${request.companyId}`, {
+      log.info('audit_complete', `Audit completed for ${request.organizationId}`, {
         correlationId, auditId: audit.id, healthScore: result.healthScore.overallScore,
         monthlySavings: result.monthlySavings, recommendations: result.recommendations.length,
       });
 
       return {
         auditId: audit.id,
-        companyId: request.companyId,
+        organizationId: request.organizationId,
         status: 'COMPLETED',
         currentSpend: result.currentSpend,
         optimizedSpend: result.optimizedSpend,
@@ -200,11 +200,11 @@ export class AuditOrchestrator {
 
       await eventBus.publish('audit.failed', {
         auditId: audit.id,
-        companyId: request.companyId,
+        organizationId: request.organizationId,
         error: error instanceof Error ? error.message : 'Unknown error',
       }, correlationId);
 
-      log.error('audit_failed', `Audit failed for ${request.companyId}`, {
+      log.error('audit_failed', `Audit failed for ${request.organizationId}`, {
         correlationId, auditId: audit.id, error: error instanceof Error ? error.message : 'Unknown error',
       });
 

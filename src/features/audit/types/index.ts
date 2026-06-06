@@ -2,7 +2,7 @@ import { AuditStatus, Prisma } from '@prisma/client';
 
 export interface AuditDomain {
   id: string;
-  companyId: string;
+  organizationId: string | null;
   status: AuditStatus;
   totalSpend: Prisma.Decimal;
   potentialSavings: Prisma.Decimal;
@@ -28,7 +28,7 @@ export interface AuditItemDomain {
 }
 
 export interface CreateAuditInput {
-  companyId: string;
+  organizationId?: string | null;
   periodStart: Date;
   periodEnd: Date;
   items: Array<{

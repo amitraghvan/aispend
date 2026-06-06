@@ -16,15 +16,16 @@ class CacheService {
     return `aispend:${namespace.toLowerCase()}:${key}`;
   }
 
-  /**
-   * Set value in cache with optional TTL
-   */
   public async set<T>(
     namespace: CacheNamespace,
     key: string,
     value: T,
     ttlSeconds?: number
   ): Promise<boolean> {
+    if (!redis) {
+      logger.debug('cache_set_disabled', 'Redis client not configured, skipping cache set', { namespace, key });
+      return false;
+    }
     const prefixedKey = this.getPrefixKey(namespace, key);
     const ttl = ttlSeconds ?? CACHE_TTLS[namespace];
     
@@ -47,6 +48,9 @@ class CacheService {
    * Get value from cache
    */
   public async get<T>(namespace: CacheNamespace, key: string): Promise<T | null> {
+    if (!redis) {
+      return null;
+    }
     const prefixedKey = this.getPrefixKey(namespace, key);
     
     try {
@@ -78,6 +82,9 @@ class CacheService {
    * Delete value from cache (Invalidation)
    */
   public async invalidate(namespace: CacheNamespace, key: string): Promise<boolean> {
+    if (!redis) {
+      return false;
+    }
     const prefixedKey = this.getPrefixKey(namespace, key);
     try {
       await redis.del(prefixedKey);
@@ -97,6 +104,9 @@ class CacheService {
    * Invalidate all keys matching a namespace pattern (Bulk Invalidation)
    */
   public async invalidatePattern(namespace: CacheNamespace, pattern: string): Promise<boolean> {
+    if (!redis) {
+      return false;
+    }
     const prefix = this.getPrefixKey(namespace, pattern);
     try {
       // Upstash Redis supports scan and keys
