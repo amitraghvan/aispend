@@ -33,40 +33,81 @@ interface AuditItem {
   toolCount: number;
 }
 
+interface TrendItem {
+  id: string;
+  healthScore: number;
+  createdAt: string;
+  totalSpend: number;
+  potentialSavings: number;
+}
+
+interface RecentReportItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  shareToken: string;
+}
+
+interface TeamActivityItem {
+  id: string;
+  createdAt: string;
+  userName: string;
+  name: string;
+}
+
+interface DashboardStats {
+  metrics: {
+    totalMonthlySpend: number;
+    potentialSavings: number;
+    healthScore: number;
+    healthGrade: string;
+    toolCount: number;
+  };
+  trends: TrendItem[];
+  recentReports: RecentReportItem[];
+  teamActivity: TeamActivityItem[];
+}
+
 export default function DashboardPage() {
   const { user, organization } = useAuth();
   const [audits, setAudits] = useState<AuditItem[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function loadAudits() {
+    async function loadDashboardData() {
       try {
-        const res = await fetch('/api/audits');
-        if (res.ok) {
-          const { data } = await res.json();
+        const [auditsRes, statsRes] = await Promise.all([
+          fetch('/api/audits'),
+          fetch('/api/dashboard/stats')
+        ]);
+        if (auditsRes.ok) {
+          const { data } = await auditsRes.json();
           setAudits(data || []);
-        } else {
-          setError('Failed to fetch audits');
+        }
+        if (statsRes.ok) {
+          const { data } = await statsRes.json();
+          setStats(data || null);
         }
       } catch (err) {
-        setError('An unexpected error occurred while loading audits');
+        setError('An unexpected error occurred while loading dashboard data');
         console.error(err);
       } finally {
         setLoading(false);
       }
     }
 
-    loadAudits();
+    loadDashboardData();
   }, []);
 
   const latestAudit = audits[0];
 
-  const totalMonthlySpend = latestAudit ? latestAudit.totalSpend : 0;
-  const potentialSavings = latestAudit ? latestAudit.potentialSavings : 0;
-  const healthScore = latestAudit ? latestAudit.healthScore : 100;
-  const healthGrade = latestAudit ? latestAudit.healthGrade : 'A';
-  const toolsAudited = latestAudit ? latestAudit.toolCount : 0;
+  const totalMonthlySpend = stats ? stats.metrics.totalMonthlySpend : (latestAudit ? latestAudit.totalSpend : 0);
+  const potentialSavings = stats ? stats.metrics.potentialSavings : (latestAudit ? latestAudit.potentialSavings : 0);
+  const healthScore = stats ? stats.metrics.healthScore : (latestAudit ? latestAudit.healthScore : 100);
+  const healthGrade = stats ? stats.metrics.healthGrade : (latestAudit ? latestAudit.healthGrade : 'A');
+  const toolsAudited = stats ? stats.metrics.toolCount : (latestAudit ? latestAudit.toolCount : 0);
 
   const savingsPct = totalMonthlySpend > 0 ? (potentialSavings / totalMonthlySpend) * 100 : 0;
 
@@ -125,6 +166,93 @@ export default function DashboardPage() {
             icon={<ShieldAlert className="w-4 h-4" />}
             variant={healthScore >= 80 ? 'success' : healthScore >= 60 ? 'warning' : 'destructive'}
           />
+        </div>
+      )}
+
+      {/* Trends, Reports and Activity Grid */}
+      {!loading && stats && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Health Trends & Reports */}
+          <div className="lg:col-span-2 space-y-6">
+            {stats.trends && stats.trends.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[var(--primary)]" />
+                  Health Score Trends
+                </h3>
+                <div className="flex items-end gap-3 h-32 pt-4">
+                  {stats.trends.map((t: TrendItem) => (
+                    <div key={t.id} className="flex-1 flex flex-col items-center gap-2 group relative">
+                      <div className="w-full bg-[var(--muted)] rounded-t-lg h-24 flex items-end">
+                        <div 
+                          className={`w-full rounded-t-lg transition-all group-hover:opacity-90 ${
+                            t.healthScore >= 80 ? 'bg-emerald-500' :
+                            t.healthScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                          }`}
+                          style={{ height: `${t.healthScore}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold">{t.healthScore}</span>
+                      <span className="text-[10px] text-[var(--muted-foreground)]">{t.createdAt.slice(5)}</span>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-2 bg-[var(--foreground)] text-[var(--background)] text-xs rounded p-2 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap shadow-lg">
+                        Spend: ${t.totalSpend.toLocaleString()}<br/>
+                        Savings: ${t.potentialSavings.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {stats.recentReports && stats.recentReports.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-bold mb-4">Recent Reports</h3>
+                <div className="divide-y divide-[var(--border)]">
+                  {stats.recentReports.map((r: RecentReportItem) => (
+                    <div key={r.id} className="py-3 flex items-center justify-between hover:bg-[var(--muted)]/20 px-2 rounded-lg transition-colors">
+                      <div>
+                        <p className="font-semibold text-sm">{r.title}</p>
+                        <p className="text-xs text-[var(--muted-foreground)]">Generated on {r.createdAt}</p>
+                      </div>
+                      <Link href={`/share/${r.shareToken}`}>
+                        <Button variant="outline" size="sm">View Share Link</Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Team Activity Feed */}
+          <Card className="p-6">
+            <h3 className="text-lg font-bold mb-4">Team Activity</h3>
+            {stats.teamActivity && stats.teamActivity.length > 0 ? (
+              <div className="space-y-4">
+                {stats.teamActivity.map((act: TeamActivityItem) => (
+                  <div key={act.id} className="flex gap-3 text-sm">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] mt-1.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        {new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p className="font-medium text-xs">
+                        <span className="text-[var(--foreground)] font-bold">{act.userName}</span>{' '}
+                        {act.name === 'audit.completed' ? 'ran an AI spend audit' :
+                         act.name === 'share.created' ? 'created a report share link' :
+                         act.name === 'email.sent' ? 'sent team invitation email' :
+                         act.name === 'report.generated' ? 'generated an audit report' :
+                         `performed ${act.name.replace('_', ' ')}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted-foreground)] text-center py-8">No recent team activities.</p>
+            )}
+          </Card>
         </div>
       )}
 

@@ -1,18 +1,43 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = global as unknown as {
+  prisma: PrismaClient;
+  pgPool: pg.Pool;
+};
 
 function createPrismaClient(): PrismaClient {
-  // During build time, DATABASE_URL may not be available.
-  // Return a client that will fail on actual queries but won't crash on import.
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    return createDeferredProxy() as PrismaClient;
+  }
+
   try {
+    // Reuse pool in development to prevent connection leakage on hot reload
+    let pool = globalForPrisma.pgPool;
+    if (!pool) {
+      pool = new pg.Pool({ connectionString });
+      if (process.env.NODE_ENV !== 'production') {
+        globalForPrisma.pgPool = pool;
+      }
+    }
+
+    const adapter = new PrismaPg(pool);
     return new PrismaClient({
+      adapter,
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     });
-  } catch {
-    // Build-time: Prisma v7 "client" engine requires adapter/accelerateUrl.
-    // Return a proxy that defers errors to actual query time.
-    return new Proxy({} as PrismaClient, {
+  } catch (error) {
+    console.warn('Failed to initialize Prisma Client, falling back to deferred proxy:', error);
+    return createDeferredProxy() as PrismaClient;
+  }
+}
+
+function createDeferredProxy(): unknown {
+  return new Proxy(
+    {},
+    {
       get(_target, prop) {
         if (prop === '$connect' || prop === '$disconnect') return () => Promise.resolve();
         if (prop === '$transaction') {
@@ -21,17 +46,6 @@ function createPrismaClient(): PrismaClient {
             return Promise.all(cb as Promise<unknown>[]);
           };
         }
-        return createDeferredProxy();
-      },
-    });
-  }
-}
-
-function createDeferredProxy(): unknown {
-  return new Proxy(
-    {},
-    {
-      get() {
         return (..._args: unknown[]) => {
           throw new Error('Database not available. Ensure DATABASE_URL is configured.');
         };

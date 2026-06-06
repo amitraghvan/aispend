@@ -5,6 +5,11 @@
  * Future-ready: can be replaced with a message queue (Redis Streams, SQS, etc.)
  */
 
+import { trackServerEvent } from '@/lib/observability/posthog';
+import * as Sentry from '@sentry/nextjs';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
 export type EventName =
   | 'audit.created'
   | 'audit.processing'
@@ -78,6 +83,7 @@ class EventBus {
    */
   clear(): void {
     this.handlers.clear();
+    // Re-register defaults after clearing in tests if needed, but in tests eventBus.clear() is common
   }
 
   /**
@@ -89,3 +95,65 @@ class EventBus {
 }
 
 export const eventBus = new EventBus();
+
+// ── Observability & DB Logging Subscribers ──
+
+async function persistEvent(name: string, organizationId?: string | null, payload?: unknown) {
+  try {
+    // Prevent event loop recursion if event triggers event creation failures
+    await prisma.event.create({
+      data: {
+        name,
+        organizationId: organizationId || null,
+        payload: (payload as Prisma.InputJsonValue) || {},
+      },
+    });
+  } catch (error) {
+    console.error('Failed to persist event to database:', error);
+  }
+}
+
+// 1. Audit Completed
+eventBus.on('audit.completed', async (event) => {
+  const payload = event.payload as { organizationId?: string; [key: string]: unknown };
+  trackServerEvent(payload.organizationId || 'anonymous', 'audit_generated', payload);
+  await persistEvent(event.name, payload.organizationId, payload);
+});
+
+// 2. Audit Failed
+eventBus.on('audit.failed', async (event) => {
+  const payload = event.payload as { organizationId?: string; error?: string; [key: string]: unknown };
+  Sentry.captureException(new Error(`Audit failed: ${payload.error}`), {
+    extra: payload,
+  });
+  trackServerEvent(payload.organizationId || 'anonymous', 'audit_failed', payload);
+  await persistEvent(event.name, payload.organizationId, payload);
+});
+
+// 3. Report Generated
+eventBus.on('report.generated', async (event) => {
+  const payload = event.payload as { organizationId?: string; [key: string]: unknown };
+  trackServerEvent(payload.organizationId || 'anonymous', 'report_generated', payload);
+  await persistEvent(event.name, payload.organizationId, payload);
+});
+
+// 4. Email Failed
+eventBus.on('email.failed', async (event) => {
+  const payload = event.payload as { error?: string; [key: string]: unknown };
+  Sentry.captureException(new Error(`Email delivery failed: ${payload.error}`), {
+    extra: payload,
+  });
+});
+
+// 5. Share Created
+eventBus.on('share.created', async (event) => {
+  const payload = event.payload as { organizationId?: string; [key: string]: unknown };
+  await persistEvent(event.name, payload.organizationId, payload);
+});
+
+// 6. Share Viewed
+eventBus.on('share.viewed', async (event) => {
+  const payload = event.payload as { organizationId?: string; [key: string]: unknown };
+  trackServerEvent('anonymous', 'share_viewed', payload);
+  await persistEvent(event.name, payload.organizationId, payload);
+});

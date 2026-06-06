@@ -100,6 +100,34 @@ const prismaMock = {
   },
   event: {
     create: vi.fn(),
+    findMany: vi.fn(),
+  },
+  user: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  organization: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  membership: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    findMany: vi.fn(),
+  },
+  invitation: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    findMany: vi.fn(),
   },
   emailLog: {
     create: vi.fn(),
@@ -116,8 +144,38 @@ vi.mock('@/lib/prisma', () => ({
   default: prismaMock,
 }));
 
-export { prismaMock };
+// 6. Mock global fetch to handle relative URLs in server/test environments
+const mockFetch = vi.fn().mockImplementation((input: string | URL | Request) => {
+  const urlStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : input.toString());
+  
+  if (urlStr.startsWith('/')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => {
+        if (urlStr.includes('/api/team/members')) {
+          return Promise.resolve({ data: [] });
+        }
+        return Promise.resolve({ data: {} });
+      },
+      headers: new Headers(),
+    } as Response);
+  }
+  
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({}),
+    headers: new Headers(),
+  } as Response);
+});
+
+vi.stubGlobal('fetch', mockFetch);
+
+export { prismaMock, mockFetch };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockFetch.mockClear();
 });
+

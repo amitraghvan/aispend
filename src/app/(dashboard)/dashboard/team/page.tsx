@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { 
   Users, 
@@ -35,82 +35,76 @@ export default function TeamPage() {
   // Roles permissions check
   const isAuthorized = role === 'OWNER' || role === 'ADMIN';
 
-  const [members, setMembers] = useState<TeamMember[]>([
-    {
-      id: '1',
-      name: user?.name || 'Jane Smith',
-      email: user?.email || 'jane@company.com',
-      role: (role as 'OWNER' | 'ADMIN' | 'MEMBER') || 'OWNER',
-      joinedAt: '2026-05-08',
-      status: 'ACTIVE',
-    },
-    {
-      id: '2',
-      name: 'Bob Miller',
-      email: 'bob@company.com',
-      role: 'ADMIN',
-      joinedAt: '2026-05-24',
-      status: 'ACTIVE',
-    },
-    {
-      id: '3',
-      name: 'Alice Johnson',
-      email: 'alice@company.com',
-      role: 'MEMBER',
-      joinedAt: '2026-06-05',
-      status: 'ACTIVE',
-    },
-  ]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   // Form states
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const handleInvite = (e: React.FormEvent) => {
+  const loadMembers = async () => {
+    try {
+      const res = await fetch('/api/team/members');
+      if (res.ok) {
+        const { data } = await res.json();
+        setMembers(data || []);
+      } else {
+        setErrorMsg('Failed to load team members');
+      }
+    } catch (err) {
+      setErrorMsg('An error occurred while loading team members');
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      loadMembers();
+    });
+  }, []);
+
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
-    setLoading(true);
+    setActionLoading(true);
 
     if (!isAuthorized) {
       setErrorMsg('You do not have permission to invite members');
-      setLoading(false);
-      return;
-    }
-
-    // Check if email already exists
-    if (members.some(m => m.email.toLowerCase() === inviteEmail.toLowerCase())) {
-      setErrorMsg('User is already a member of this workspace');
-      setLoading(false);
+      setActionLoading(false);
       return;
     }
 
     try {
-      const newMember: TeamMember = {
-        id: `mock-member-${Date.now()}`,
-        name: null,
-        email: inviteEmail,
-        role: inviteRole,
-        joinedAt: new Date().toLocaleDateString(),
-        status: 'PENDING',
-      };
+      const res = await fetch('/api/team/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
 
-      setMembers([...members, newMember]);
-      setSuccessMsg(`Invitation successfully sent to ${inviteEmail}`);
-      setInviteEmail('');
+      const result = await res.json();
+
+      if (res.ok) {
+        setSuccessMsg(`Invitation successfully sent to ${inviteEmail}`);
+        setInviteEmail('');
+        loadMembers(); // Refresh list to see the pending invite
+      } else {
+        setErrorMsg(result.error?.message || 'Failed to invite member');
+      }
     } catch (err) {
       setErrorMsg('Failed to invite member');
       console.error(err);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
-  const handleRemoveMember = (id: string) => {
+  const handleRemoveMember = async (id: string) => {
     if (!isAuthorized) return;
+    setErrorMsg('');
+    setSuccessMsg('');
     
     // Find the member to make sure they're not removing the owner
     const member = members.find(m => m.id === id);
@@ -119,9 +113,27 @@ export default function TeamPage() {
       return;
     }
 
-    setMembers(members.filter(m => m.id !== id));
-    setSuccessMsg('Member removed from workspace');
+    try {
+      const res = await fetch(`/api/team/members/${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSuccessMsg(member?.status === 'PENDING' ? 'Invitation revoked' : 'Member removed from workspace');
+        loadMembers();
+      } else {
+        setErrorMsg(result.error?.message || 'Failed to remove member');
+      }
+    } catch (err) {
+      setErrorMsg('Failed to remove member');
+      console.error(err);
+    }
   };
+
+  // Import useEffect if not imported
+  // (We'll check imports at the top of the file)
 
   return (
     <FadeIn className="space-y-8">
@@ -169,7 +181,7 @@ export default function TeamPage() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   required
-                  disabled={loading}
+                  disabled={actionLoading}
                 />
                 <Select
                   id="invite-role"
@@ -180,11 +192,11 @@ export default function TeamPage() {
                   ]}
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as 'ADMIN' | 'MEMBER')}
-                  disabled={loading}
+                  disabled={actionLoading}
                 />
-                <Button type="submit" disabled={loading || !inviteEmail} className="w-full flex items-center justify-center gap-2">
+                <Button type="submit" disabled={actionLoading || !inviteEmail} className="w-full flex items-center justify-center gap-2">
                   <Mail className="w-4 h-4" />
-                  {loading ? 'Sending Invite...' : 'Send Invitation'}
+                  {actionLoading ? 'Sending Invite...' : 'Send Invitation'}
                 </Button>
               </form>
             </Card>

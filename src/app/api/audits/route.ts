@@ -30,8 +30,36 @@ const createAuditSchema = z.object({
   totalDevelopers: z.number().int().min(0).optional(),
 });
 
+import { rateLimit } from '@/lib/redis/rate-limiter';
+
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate Limiting ──
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const session = await getSession();
+    const identifier = session ? `audit:${session.user.id}` : `audit:anon:${ip}`;
+    
+    // Allow 10 audits per hour
+    const limitResult = await rateLimit(identifier, 10, 3600);
+    
+    if (!limitResult.success) {
+      const errorRes = NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'RATE_LIMIT_ERROR',
+            message: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.`,
+          },
+          timestamp: new Date().toISOString(),
+        },
+        { status: 429 }
+      );
+      errorRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
+      errorRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
+      errorRes.headers.set('X-RateLimit-Reset', String(limitResult.reset));
+      return errorRes;
+    }
+
     const body = await request.json();
     const parsed = createAuditSchema.safeParse(body);
 
@@ -41,13 +69,9 @@ export async function POST(request: NextRequest) {
 
     const { items, totalEmployees, totalDevelopers } = parsed.data;
 
-    // Check for auth session
-    const session = await getSession();
-    const organizationId = session?.organization.id;
-
     // Execute audit via orchestrator (persists to DB if configured)
     const result = await auditOrchestrator.processAudit({
-      organizationId,
+      organizationId: session?.organization.id,
       items: items.map((item) => ({
         toolId: item.toolId,
         toolName: item.toolName,
@@ -61,7 +85,11 @@ export async function POST(request: NextRequest) {
       totalDevelopers,
     });
 
-    return apiCreated(result);
+    const response = apiCreated(result);
+    response.headers.set('X-RateLimit-Limit', String(limitResult.limit));
+    response.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
+    response.headers.set('X-RateLimit-Reset', String(limitResult.reset));
+    return response;
   } catch (error) {
     log.error('api_audit_create_error', 'Failed to create audit', {
       error: error instanceof Error ? error.message : 'Unknown error',

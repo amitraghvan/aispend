@@ -10,7 +10,7 @@ const log = logger.forService('email-service');
 
 export interface EmailPayload {
   to: string;
-  subject: string;
+  subject?: string;
   template: string;
   data: Record<string, unknown>;
 }
@@ -22,6 +22,21 @@ export interface EmailTemplate {
 
 const TEMPLATES: Record<string, (data: Record<string, unknown>) => EmailTemplate> = {
   audit_confirmation: (data) => ({
+    subject: 'Your AI Spend Audit is Ready',
+    html: `
+      <h1>Your AI Spend Audit is Complete</h1>
+      <p>Here are your key findings:</p>
+      <ul>
+        <li>Current Monthly Spend: <strong>$${data.currentSpend}</strong></li>
+        <li>Potential Monthly Savings: <strong>$${data.monthlySavings}</strong></li>
+        <li>Health Score: <strong>${data.healthScore}/100 (${data.healthGrade})</strong></li>
+        <li>Recommendations: <strong>${data.recommendationCount}</strong></li>
+      </ul>
+      <p><a href="${data.reportUrl}">View Full Report</a></p>
+    `,
+  }),
+
+  audit_completed: (data) => ({
     subject: 'Your AI Spend Audit is Ready',
     html: `
       <h1>Your AI Spend Audit is Complete</h1>
@@ -54,6 +69,54 @@ const TEMPLATES: Record<string, (data: Record<string, unknown>) => EmailTemplate
       <p><strong>${data.recommendation}</strong></p>
       <p>Estimated savings: <strong>$${data.monthlySavings}/month</strong></p>
       <p><a href="${data.dashboardUrl}">Review in Dashboard</a></p>
+    `,
+  }),
+
+  welcome_email: (data) => ({
+    subject: 'Welcome to AI Spend Intelligence',
+    html: `
+      <h1>Welcome to AI Spend</h1>
+      <p>Hi ${data.name || 'there'},</p>
+      <p>Thanks for signing up for AI Spend! We're thrilled to help you analyze, monitor, and optimize your AI subscriptions.</p>
+      <p>Get started by running your first spend audit:</p>
+      <p><a href="${data.actionUrl}">Run Spend Audit</a></p>
+    `,
+  }),
+
+  team_invitation: (data) => ({
+    subject: `You're invited to join ${data.orgName} on AI Spend`,
+    html: `
+      <h1>Join your team on AI Spend</h1>
+      <p>Hi there,</p>
+      <p><strong>${data.inviterName || 'Someone'}</strong> has invited you to join the <strong>${data.orgName}</strong> workspace on AI Spend as an <strong>${data.role}</strong>.</p>
+      <p>Click the link below to accept the invitation and join your team:</p>
+      <p><a href="${data.inviteUrl}">Accept Invitation</a></p>
+      <p>This link will expire on ${data.expiresAt}.</p>
+    `,
+  }),
+
+  password_reset: (data) => ({
+    subject: 'Reset your AI Spend Password',
+    html: `
+      <h1>Reset Password Request</h1>
+      <p>Hi there,</p>
+      <p>We received a request to reset your password. Click the link below to set a new password:</p>
+      <p><a href="${data.resetUrl}">Reset Password</a></p>
+      <p>If you did not request this, you can safely ignore this email.</p>
+    `,
+  }),
+
+  monthly_summary: (data) => ({
+    subject: `AI Spend Monthly Summary — ${data.month}`,
+    html: `
+      <h1>Your AI Spend Monthly Summary</h1>
+      <p>Here is your spend activity for ${data.month}:</p>
+      <ul>
+        <li>Total Monthly Spend: <strong>$${data.totalSpend}</strong></li>
+        <li>Total Potential Savings: <strong>$${data.potentialSavings}</strong></li>
+        <li>Active Subscriptions: <strong>${data.toolCount}</strong></li>
+      </ul>
+      <p><a href="${data.dashboardUrl}">View Dashboard</a></p>
     `,
   }),
 };
