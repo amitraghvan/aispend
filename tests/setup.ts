@@ -19,9 +19,9 @@ process.env.SENTRY_DSN = 'https://mock@sentry.io/mock';
 // 2. Mock Redis client
 vi.mock('@/lib/redis/redis', () => ({
   redis: {
-    get: vi.fn(),
-    set: vi.fn(),
-    del: vi.fn(),
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
     keys: vi.fn().mockResolvedValue([]),
     pipeline: vi.fn(() => ({
       zremrangebyscore: vi.fn().mockReturnThis(),
@@ -56,37 +56,67 @@ vi.mock('posthog-node', () => ({
 }));
 
 // 5. Mock Prisma Client
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    audit: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      findUnique: vi.fn(),
-    },
-    auditItem: {
-      updateMany: vi.fn(),
-      createMany: vi.fn(),
-    },
-    $transaction: vi.fn((callback) => callback(prismaMock)),
-  },
-  default: null,
-}));
-
-export const prismaMock = {
+const prismaMock = {
   audit: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  auditItem: {
+    findMany: vi.fn(),
+    createMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  recommendation: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    createMany: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  report: {
     findFirst: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
-    findUnique: vi.fn(),
+    count: vi.fn(),
   },
-  auditItem: {
-    updateMany: vi.fn(),
-    createMany: vi.fn(),
+  lead: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
   },
+  auditShare: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  event: {
+    create: vi.fn(),
+  },
+  emailLog: {
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  $transaction: vi.fn((callback: unknown) => {
+    if (typeof callback === 'function') return callback(prismaMock);
+    return Promise.all(callback as Promise<unknown>[]);
+  }),
 };
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: prismaMock,
+  default: prismaMock,
+}));
+
+export { prismaMock };
 
 beforeEach(() => {
   vi.clearAllMocks();

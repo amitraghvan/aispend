@@ -1,8 +1,9 @@
 import { auditRepository, AuditRepository } from '../repositories/AuditRepository';
-import { cache } from '@/lib/redis/cache';
+import { cacheService } from '@/lib/cache/cache-service';
 import { CreateAuditInput, AuditDomain } from '../types';
 import { logger } from '@/lib/logger/logger';
 import { ValidationError, NotFoundError } from '@/lib/errors/AppError';
+import { Prisma } from '@prisma/client';
 
 export class AuditService {
   private repo: AuditRepository;
@@ -29,13 +30,36 @@ export class AuditService {
       throw new ValidationError('Period start date must be before period end date.');
     }
 
-    // 2. Database Creation (transactional)
-    const audit = await this.repo.create(input);
+    // 2. Calculate totals
+    const totalSpend = input.items.reduce(
+      (sum, item) => sum.add(item.spendAmount),
+      new Prisma.Decimal(0)
+    );
 
-    // 3. Clear cache pattern for company audits
-    await cache.invalidatePattern('AUDIT', `list:${input.companyId}`);
+    // 3. Database Creation
+    const audit = await this.repo.create({
+      company: { connect: { id: input.companyId } },
+      totalSpend,
+      potentialSavings: new Prisma.Decimal(0),
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+    });
 
-    return audit;
+    // 4. Create items
+    await this.repo.createItems(
+      audit.id,
+      input.items.map((item) => ({
+        auditId: audit.id,
+        toolId: item.toolName,
+        toolName: item.toolName,
+        spendAmount: item.spendAmount,
+      }))
+    );
+
+    // 5. Clear cache pattern for company audits
+    await cacheService.invalidatePattern('audit');
+
+    return audit as unknown as AuditDomain;
   }
 
   /**
@@ -43,9 +67,8 @@ export class AuditService {
    */
   async getAuditById(id: string): Promise<AuditDomain> {
     // 1. Check cache first
-    const cachedAudit = await cache.get<AuditDomain>('AUDIT', `detail:${id}`);
+    const cachedAudit = await cacheService.getAudit<AuditDomain>(id);
     if (cachedAudit) {
-      // Re-hydrate Date instances parsed from JSON cache
       cachedAudit.periodStart = new Date(cachedAudit.periodStart);
       cachedAudit.periodEnd = new Date(cachedAudit.periodEnd);
       cachedAudit.createdAt = new Date(cachedAudit.createdAt);
@@ -60,32 +83,20 @@ export class AuditService {
     }
 
     // 3. Save to cache (TTL = 1 hour)
-    await cache.set('AUDIT', `detail:${id}`, audit);
+    await cacheService.setAudit(id, audit);
 
-    return audit;
+    return audit as unknown as AuditDomain;
   }
 
   /**
-   * Retrieves all audits for a company, caching the list.
+   * Retrieves all audits for a company.
    */
   async getCompanyAudits(companyId: string): Promise<AuditDomain[]> {
-    const cacheKey = `list:${companyId}`;
-    const cachedList = await cache.get<AuditDomain[]>('AUDIT', cacheKey);
-    
-    if (cachedList) {
-      return cachedList.map((audit) => ({
-        ...audit,
-        periodStart: new Date(audit.periodStart),
-        periodEnd: new Date(audit.periodEnd),
-        createdAt: new Date(audit.createdAt),
-        updatedAt: new Date(audit.updatedAt),
-      }));
-    }
-
-    const audits = await this.repo.findByCompanyId(companyId);
-    await cache.set('AUDIT', cacheKey, audits);
-    
-    return audits;
+    const { data } = await this.repo.findMany(
+      { companyId },
+      { skip: 0, take: 100 }
+    );
+    return data as unknown as AuditDomain[];
   }
 
   /**
@@ -97,12 +108,8 @@ export class AuditService {
       throw new NotFoundError(`Audit with ID ${id} not found.`);
     }
 
-    // Perform soft delete in repository
     await this.repo.softDelete(id);
-
-    // Invalidate detail and list cache
-    await cache.invalidate('AUDIT', `detail:${id}`);
-    await cache.invalidatePattern('AUDIT', `list:${audit.companyId}`);
+    await cacheService.invalidate('audit', id);
   }
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuditService } from '@/features/audit/services/AuditService';
 import { makeAudit } from '../factories/audit';
-import { cache } from '@/lib/redis/cache';
+import { cacheService } from '@/lib/cache/cache-service';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -20,30 +20,30 @@ describe('AuditService', () => {
   describe('getAuditById', () => {
     it('should return from cache if cached copy exists', async () => {
       const mockAuditData = makeAudit({ id: 'cached-audit-id' });
-      const getSpy = vi.spyOn(cache, 'get').mockResolvedValue(mockAuditData);
+      const getSpy = vi.spyOn(cacheService, 'getAudit').mockResolvedValue(mockAuditData);
       
       const result = await service.getAuditById('cached-audit-id');
       
-      expect(getSpy).toHaveBeenCalledWith('AUDIT', 'detail:cached-audit-id');
+      expect(getSpy).toHaveBeenCalledWith('cached-audit-id');
       expect(result.id).toBe('cached-audit-id');
       expect(mockFindFirst).not.toHaveBeenCalled();
     });
 
     it('should query DB and populate cache on cache miss', async () => {
       const dbAuditData = makeAudit({ id: 'db-audit-id' });
-      vi.spyOn(cache, 'get').mockResolvedValue(null);
-      const setSpy = vi.spyOn(cache, 'set').mockResolvedValue(true);
+      vi.spyOn(cacheService, 'getAudit').mockResolvedValue(null);
+      const setSpy = vi.spyOn(cacheService, 'setAudit').mockResolvedValue();
       mockFindFirst.mockResolvedValue(dbAuditData);
 
       const result = await service.getAuditById('db-audit-id');
 
       expect(mockFindFirst).toHaveBeenCalled();
-      expect(setSpy).toHaveBeenCalledWith('AUDIT', 'detail:db-audit-id', dbAuditData);
+      expect(setSpy).toHaveBeenCalledWith('db-audit-id', dbAuditData);
       expect(result.id).toBe('db-audit-id');
     });
 
     it('should throw error if audit is not found', async () => {
-      vi.spyOn(cache, 'get').mockResolvedValue(null);
+      vi.spyOn(cacheService, 'getAudit').mockResolvedValue(null);
       mockFindFirst.mockResolvedValue(null);
 
       await expect(service.getAuditById('missing-id')).rejects.toThrow('Audit with ID missing-id not found.');

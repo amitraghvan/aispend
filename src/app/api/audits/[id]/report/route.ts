@@ -1,0 +1,37 @@
+/**
+ * POST /api/audits/:id/report — Generate report for an audit.
+ */
+
+import { NextRequest } from 'next/server';
+import { apiCreated, apiNotFound, apiServerError } from '@/lib/api/contracts';
+import { auditRepository } from '@/features/audit/repositories/AuditRepository';
+import { reportService } from '@/features/reports/services/ReportService';
+import { logger } from '@/lib/logger/logger';
+
+const log = logger.forService('report-api');
+
+export async function POST(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const audit = await auditRepository.findById(id);
+    if (!audit) return apiNotFound('Audit not found');
+    if (audit.status !== 'COMPLETED') {
+      return apiServerError('Audit must be completed before generating a report');
+    }
+
+    const result = await reportService.generateReport(id, audit.companyId);
+
+    log.info('api_report_created', `Report generated for audit ${id}`, { reportId: result.reportId });
+
+    return apiCreated(result);
+  } catch (error) {
+    log.error('api_report_error', 'Failed to generate report', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return apiServerError('Failed to generate report');
+  }
+}
