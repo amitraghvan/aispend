@@ -35,14 +35,13 @@ export default function TeamPage() {
   // Roles permissions check
   const isAuthorized = role === 'OWNER' || role === 'ADMIN';
 
-  // Sample initial members
   const [members, setMembers] = useState<TeamMember[]>([
     {
       id: '1',
       name: user?.name || 'Jane Smith',
       email: user?.email || 'jane@company.com',
       role: (role as 'OWNER' | 'ADMIN' | 'MEMBER') || 'OWNER',
-      joinedAt: new Date(Date.now() - 3600000 * 24 * 30).toLocaleDateString(),
+      joinedAt: '2026-05-08',
       status: 'ACTIVE',
     },
     {
@@ -50,7 +49,7 @@ export default function TeamPage() {
       name: 'Bob Miller',
       email: 'bob@company.com',
       role: 'ADMIN',
-      joinedAt: new Date(Date.now() - 3600000 * 24 * 14).toLocaleDateString(),
+      joinedAt: '2026-05-24',
       status: 'ACTIVE',
     },
     {
@@ -58,7 +57,7 @@ export default function TeamPage() {
       name: 'Alice Johnson',
       email: 'alice@company.com',
       role: 'MEMBER',
-      joinedAt: new Date(Date.now() - 3600000 * 24 * 2).toLocaleDateString(),
+      joinedAt: '2026-06-05',
       status: 'ACTIVE',
     },
   ]);

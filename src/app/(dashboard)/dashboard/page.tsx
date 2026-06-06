@@ -34,7 +34,7 @@ interface AuditItem {
 }
 
 export default function DashboardPage() {
-  const { organization } = useAuth();
+  useAuth();
   const [audits, setAudits] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

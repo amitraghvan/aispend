@@ -69,7 +69,7 @@ export function withTenantCreate<T extends Record<string, unknown>>(
  */
 export function isTenantResource(
   tenant: TenantContext,
-  record: { organizationId?: string | null; [key: string]: any }
+  record: { organizationId?: string | null; [key: string]: unknown }
 ): boolean {
   return record.organizationId === tenant.organizationId;
 }

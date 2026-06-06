@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { auditRepository } from '@/features/audit/repositories/AuditRepository';
-import { reportService } from '@/features/reports/services/ReportService';
 import { cacheService } from '@/lib/cache/cache-service';
 import { logger } from '@/lib/logger/logger';
 
