@@ -1,0 +1,391 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  USER
+}
+
+enum AuditStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RecommendationType {
+  ALTERNATIVE_MODEL
+  CACHING
+  RATE_LIMITING
+  CONCURRENCY_OPTIMIZATION
+  UNUSED_RESOURCES
+  PRICING_PLAN_UPGRADE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum ReferralStatus {
+  SENT
+  JOINED
+  REWARDED
+}
+
+model Company {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  domain    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  users      User[]
+  audits     Audit[]
+  reports    Report[]
+  apiUsages  ApiUsage[]
+  settings   Settings?
+  events     Event[]
+
+  @@index([deletedAt])
+}
+
+model User {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String    @unique
+  name      String?
+  role      UserRole  @default(USER)
+  companyId String    @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  referrals Referral[] @relation("ReferrerUsers")
+  events    Event[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model Audit {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String      @db.Uuid
+  status           AuditStatus @default(DRAFT)
+  totalSpend       Decimal     @db.Decimal(15, 4)
+  potentialSavings Decimal     @db.Decimal(15, 4)
+  periodStart      DateTime
+  periodEnd        DateTime
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+
+  // Relationships
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items           AuditItem[]
+  recommendations Recommendation[]
+  reports         Report[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([periodStart, periodEnd])
+}
+
+model AuditItem {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auditId      String    @db.Uuid
+  toolName     String
+  modelName    String?
+  tokensInput  BigInt?
+  tokensOutput BigInt?
+  callsCount   Int?
+  spendAmount  Decimal   @db.Decimal(15, 4)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  // Relationships
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+  @@index([toolName])
+  @@index([deletedAt])
+}
+
+model Recommendation {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auditId          String             @db.Uuid
+  title            String
+  description      String
+  type             RecommendationType
+  estimatedSavings Decimal            @db.Decimal(15, 4)
+  toolCatalogId    String?            @db.Uuid
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+
+  // Relationships
+  audit       Audit        @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  toolCatalog ToolCatalog? @relation(fields: [toolCatalogId], references: [id], onDelete: SetNull)
+
+  @@index([auditId])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model Report {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId  String    @db.Uuid
+  auditId    String    @db.Uuid
+  title      String
+  shareToken String    @unique
+  pdfUrl     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  // Relationships
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  audit   Audit        @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  shares  AuditShare[]
+
+  @@index([companyId])
+  @@index([auditId])
+  @@index([shareToken])
+  @@index([deletedAt])
+}
+
+model Lead {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email       String
+  name        String?
+  companyName String?
+  spendRange  String?
+  status      LeadStatus @default(NEW)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  @@index([email])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ToolCatalog {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @unique
+  category    String
+  description String?
+  websiteUrl  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Relationships
+  pricingSources   PricingSource[]
+  pricingHistories PricingHistory[]
+  benchmarks       Benchmark[]
+  recommendations  Recommendation[]
+
+  @@index([name])
+  @@index([category])
+  @@index([deletedAt])
+}
+
+model PricingSource {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  toolCatalogId String    @db.Uuid
+  name          String
+  url           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relationships
+  toolCatalog ToolCatalog @relation(fields: [toolCatalogId], references: [id], onDelete: Cascade)
+
+  @@index([toolCatalogId])
+  @@index([deletedAt])
+}
+
+model PricingHistory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  toolCatalogId String    @db.Uuid
+  modelName     String?
+  unitType      String
+  inputPrice    Decimal?  @db.Decimal(15, 6)
+  outputPrice   Decimal?  @db.Decimal(15, 6)
+  effectiveDate DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relationships
+  toolCatalog ToolCatalog @relation(fields: [toolCatalogId], references: [id], onDelete: Cascade)
+
+  @@index([toolCatalogId])
+  @@index([effectiveDate])
+  @@index([deletedAt])
+}
+
+model Benchmark {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  toolCatalogId String    @db.Uuid
+  metricName    String
+  metricValue   Decimal   @db.Decimal(15, 4)
+  industry      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relationships
+  toolCatalog ToolCatalog @relation(fields: [toolCatalogId], references: [id], onDelete: Cascade)
+
+  @@index([toolCatalogId])
+  @@index([industry])
+  @@index([deletedAt])
+}
+
+model AuditShare {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId  String    @db.Uuid
+  accessCode String?
+  expiresAt DateTime?
+  viewCount Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([deletedAt])
+}
+
+model Event {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @db.Uuid
+  companyId String?  @db.Uuid
+  name      String
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([name])
+}
+
+model SystemLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level     String
+  service   String
+  action    String
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient    String
+  subject      String
+  template     String
+  status       String
+  externalId   String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([recipient])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ApiUsage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String   @db.Uuid
+  tokensUsed  BigInt   @default(0)
+  callsCount  Int      @default(0)
+  limitAmount Decimal? @db.Decimal(15, 4)
+  periodStart DateTime
+  periodEnd   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([periodStart, periodEnd])
+}
+
+model Referral {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerId    String         @db.Uuid
+  referredEmail String
+  status        ReferralStatus @default(SENT)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  // Relationships
+  referrer User @relation("ReferrerUsers", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([referredEmail])
+  @@index([deletedAt])
+}
+
+model FeatureFlag {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String    @unique
+  description String?
+  isEnabled   Boolean   @default(false)
+  rules       Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([key])
+  @@index([deletedAt])
+}
+
+model Settings {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String    @unique @db.Uuid
+  auditSchedule        String?
+  notificationsEnabled Boolean   @default(true)
+  thresholdAlerts      Decimal?  @db.Decimal(15, 4)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+
+  // Relationships
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+}

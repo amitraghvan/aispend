@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Spend Intelligence Platform (Phase 1 Foundation)
 
-## Getting Started
+A startup-grade B2B SaaS platform that helps startups audit their AI spending, identify overspending, discover optimization opportunities, generate savings recommendations, create shareable reports, and generate qualified leads.
 
-First, run the development server:
+> [!IMPORTANT]
+> This codebase represents **Phase 1 Only** (foundations, schemas, logging, errors, configuration, DevOps, testing setup, and documentation). Interactive UIs and analysis engines belong to subsequent phases.
 
+---
+
+## ⚡ Tech Stack
+
+* **Frontend**: Next.js 15 App Router, TypeScript, Tailwind CSS, Shadcn UI
+* **Backend**: Next.js Server Actions, API Route Handlers
+* **Database**: PostgreSQL, Prisma ORM, Supabase
+* **Caching**: Upstash Redis (Serverless)
+* **Email**: Resend
+* **AI Provider**: Anthropic Claude API
+* **Observability**: PostHog, Sentry
+* **CI/CD**: GitHub Actions
+* **Testing**: Vitest, React Testing Library, Playwright
+
+---
+
+## 🛠️ Getting Started
+
+### 1. Prerequisites
+Ensure you have Node.js 20+ installed on your system.
+
+### 2. Dependency Installation
+Initialize packages using:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install --legacy-peer-deps
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Environment Configuration
+Create a local `.env` file from the example:
+```bash
+cp .env.example .env
+```
+Fill in the credentials for Supabase, Upstash Redis, Resend, Anthropic, Sentry, and PostHog.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Database Setup
+Validate the Prisma schema config:
+```bash
+npx prisma validate
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Generate the Prisma Client code:
+```bash
+npx prisma generate
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🧪 Verification & Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Running Unit Tests
+We use Vitest for unit and integration testing. Run tests locally using:
+```bash
+# Run tests once
+npm run test
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Run tests in watch mode
+npm run test:watch
+```
 
-## Deploy on Vercel
+### Linter & Type Verification
+Ensure code matches formatting standards and compiles:
+```bash
+# Lint checks
+npm run lint
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# TypeScript verification
+npx tsc --noEmit
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Next.js Dev Server
+To launch the hot-reloading development server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) with your browser to view the application.
+
+---
+
+## 📖 System Documentation Directory
+
+Refer to the primary documents for structural details:
+* [ARCHITECTURE.md](file:///Users/amitkumar/AISPEND/ARCHITECTURE.md) - System workflows, feature layouts, and Mermaid diagrams.
+* [DATABASE.md](file:///Users/amitkumar/AISPEND/DATABASE.md) - PostgreSQL configurations, indexes, soft-delete, and replication lag management.
+* [SECURITY.md](file:///Users/amitkumar/AISPEND/SECURITY.md) - Security headers, CSRF matches, rate limiting, and RBAC rules.
+* [API.md](file:///Users/amitkumar/AISPEND/API.md) - Global payload wrappers and error classifications.
+* [CONTRIBUTING.md](file:///Users/amitkumar/AISPEND/CONTRIBUTING.md) - Repository protocols, commit types, and Pull Request boundaries.

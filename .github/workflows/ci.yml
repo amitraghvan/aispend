@@ -1,0 +1,107 @@
+name: CI/CD Foundation Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type-Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Code Linting Check
+        run: npm run lint
+
+      - name: TypeScript Compilation Check
+        run: npx tsc --noEmit
+
+  security-audit:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Audit NPM Packages
+        run: npm audit --audit-level=high
+
+  run-tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Run Test Suite
+        run: npm run test
+
+  build-verification:
+    name: Production Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Verify Next.js Build compiles
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/postgres?pgbouncer=true"
+          DIRECT_URL: "postgresql://postgres:password@localhost:5432/postgres"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          SUPABASE_URL: "https://mockref.supabase.co"
+          SUPABASE_ANON_KEY: "eymockanon"
+          SUPABASE_SERVICE_ROLE_KEY: "eymockservice"
+          ANTHROPIC_API_KEY: "sk-ant-mock"
+          RESEND_API_KEY: "re_mock"
+          UPSTASH_REDIS_URL: "https://mockredis.upstash.io"
+          UPSTASH_REDIS_TOKEN: "mocktoken"
+          POSTHOG_KEY: "phc_mock"
+          SENTRY_DSN: "https://mock@sentry.io/mock"
+          NODE_ENV: "production"
