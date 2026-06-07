@@ -3,13 +3,32 @@ import { opportunityInsightService } from '@/features/ai/services/OpportunityIns
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { cacheService } from '@/lib/cache/cache-service';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const opportunitiesSchema = z.object({
+  auditId: z.string().min(1, 'Invalid audit ID format').optional(),
+  recommendations: z.any().optional(),
+  bypassCache: z.boolean().optional(),
+}).refine(d => d.auditId || d.recommendations, {
+  message: 'Either auditId or recommendations must be provided',
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { auditId, recommendations, bypassCache } = body;
+
+    const parsed = opportunitiesSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { auditId, recommendations, bypassCache } = parsed.data;
+
 
     let inputData = recommendations;
 

@@ -3,13 +3,36 @@ import { executiveSummaryService } from '@/features/ai/services/ExecutiveSummary
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { cacheService } from '@/lib/cache/cache-service';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const executiveSummarySchema = z.object({
+  auditId: z.string().min(1, 'Invalid audit ID format').optional(),
+  data: z.any().optional(),
+  bypassCache: z.boolean().optional(),
+}).refine(d => d.auditId || d.data, {
+  message: 'Either auditId or data must be provided',
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { auditId, data, bypassCache } = body;
+
+    if (!body.auditId && !body.data) {
+      return NextResponse.json({ error: 'Missing summary data or auditId' }, { status: 400 });
+    }
+
+    const parsed = executiveSummarySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { auditId, data, bypassCache } = parsed.data;
+
 
     let inputData = data;
 

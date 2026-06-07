@@ -3,15 +3,38 @@ import { aiOrchestrator, InMemoryAuditResult } from '@/features/ai/services/AIOr
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger/logger';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.forService('ai-api-insights');
 
+const insightsSchema = z.object({
+  auditId: z.string().min(1, 'Invalid audit ID format').optional(),
+  auditData: z.any().optional(),
+  bypassCache: z.boolean().optional(),
+}).refine(d => d.auditId || d.auditData, {
+  message: 'Either auditId or auditData must be provided',
+});
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { auditId, auditData, bypassCache } = body;
+
+    if (!body.auditId && !body.auditData) {
+      return NextResponse.json({ error: 'Missing auditId or auditData' }, { status: 400 });
+    }
+
+    const parsed = insightsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { auditId, auditData, bypassCache } = parsed.data;
+
 
     let orgId: string | undefined;
 

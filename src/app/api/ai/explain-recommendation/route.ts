@@ -3,13 +3,32 @@ import { recommendationExplainerService } from '@/features/ai/services/Recommend
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { cacheService } from '@/lib/cache/cache-service';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const explainRecSchema = z.object({
+  recommendationId: z.string().min(1, 'Invalid recommendation ID format').optional(),
+  data: z.any().optional(),
+  bypassCache: z.boolean().optional(),
+}).refine(d => d.recommendationId || d.data, {
+  message: 'Either recommendationId or data must be provided',
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { recommendationId, data, bypassCache } = body;
+
+    const parsed = explainRecSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { recommendationId, data, bypassCache } = parsed.data;
+
 
     let inputData = data;
 

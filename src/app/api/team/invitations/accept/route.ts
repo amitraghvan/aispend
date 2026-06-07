@@ -1,25 +1,39 @@
-/**
- * POST /api/team/invitations/accept — Accept a team invitation.
- */
-
-export const dynamic = 'force-dynamic';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiSuccess, apiValidationError, apiServerError, apiError } from '@/lib/api/contracts';
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger/logger';
+import { rateLimit } from '@/lib/redis/rate-limiter';
+
+export const dynamic = 'force-dynamic';
 
 const log = logger.forService('team-api');
 
 const acceptSchema = z.object({
-  token: z.string().min(1),
+  token: z.string().regex(/^[0-9a-f]{64}$/i, 'Invalid invitation token format'),
 });
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // ── Rate Limiting ──
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const limitResult = await rateLimit(`invite_accept:${ip}`, 20, 60);
+
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.` },
+        { status: 429 }
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 });
+    }
+
     const parsed = acceptSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -33,6 +47,7 @@ export async function POST(request: NextRequest) {
       where: { token },
       include: { organization: true },
     });
+
 
     if (!invitation) {
       return apiError('NOT_FOUND', 'Invitation not found', 404);

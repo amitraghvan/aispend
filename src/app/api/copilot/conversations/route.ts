@@ -3,10 +3,21 @@ import { conversationService } from '@/features/ai/services/ConversationService'
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger/logger';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/redis/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.forService('copilot-api-conversations');
+
+const getConversationsSchema = z.object({
+  auditId: z.string().min(1, 'Invalid audit ID format'),
+});
+
+const createConversationSchema = z.object({
+  auditId: z.string().min(1, 'Invalid audit ID format'),
+  title: z.string().min(1, 'Title cannot be empty').max(100, 'Title is too long'),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,12 +27,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const auditId = searchParams.get('auditId');
+    // ── Rate Limiting ──
+    const identifier = `conversations_get:${session.user.id}`;
+    const limitResult = await rateLimit(identifier, 30, 60);
 
-    if (!auditId) {
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.` },
+        { status: 429 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const auditIdParam = searchParams.get('auditId');
+
+    if (!auditIdParam) {
       return NextResponse.json({ error: 'Missing auditId query parameter' }, { status: 400 });
     }
+
+    const parsed = getConversationsSchema.safeParse({ auditId: auditIdParam });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { auditId } = parsed.data;
 
     // Enforce audit ownership if session and audit organization are present
     const audit = await prisma.audit.findUnique({
@@ -32,11 +64,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
     }
 
-    if (audit.organizationId && session && session.organization.id !== audit.organizationId) {
+    if (audit.organizationId && session.organization.id !== audit.organizationId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const orgId = session?.organization.id || null;
+    const orgId = session.organization.id;
 
     const conversations = await conversationService.listConversations({
       auditId,
@@ -60,12 +92,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { auditId, title } = body;
+    // ── Rate Limiting ──
+    const identifier = `conversations_post:${session.user.id}`;
+    const limitResult = await rateLimit(identifier, 30, 60);
 
-    if (!auditId || !title) {
-      return NextResponse.json({ error: 'Missing auditId or title' }, { status: 400 });
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.` },
+        { status: 429 }
+      );
     }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 });
+    }
+
+    const parsed = createConversationSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { auditId, title } = parsed.data;
 
     // Enforce audit ownership
     const audit = await prisma.audit.findUnique({
@@ -76,11 +129,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
     }
 
-    if (audit.organizationId && session && session.organization.id !== audit.organizationId) {
+    if (audit.organizationId && session.organization.id !== audit.organizationId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const orgId = session?.organization.id || null;
+    const orgId = session.organization.id;
 
     const conversation = await conversationService.startConversation({
       organizationId: orgId,
@@ -96,3 +149,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

@@ -5,11 +5,12 @@
 export const dynamic = 'force-dynamic';
 
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiCreated, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { auditRepository } from '@/features/audit/repositories/AuditRepository';
 import { reportService } from '@/features/reports/services/ReportService';
 import { logger } from '@/lib/logger/logger';
+import { getSession } from '@/lib/auth/session';
 
 const log = logger.forService('report-api');
 
@@ -19,9 +20,28 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     const audit = await auditRepository.findById(id);
     if (!audit) return apiNotFound('Audit not found');
+
+    if (
+      audit.organizationId &&
+      audit.organizationId !== session.organization.id
+    ) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
     if (audit.status !== 'COMPLETED') {
       return apiServerError('Audit must be completed before generating a report');
     }

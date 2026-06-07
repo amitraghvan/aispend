@@ -1,9 +1,3 @@
-/**
- * POST /api/team/invitations — Create and send a team invitation.
- */
-
-export const dynamic = 'force-dynamic';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiCreated, apiValidationError, apiServerError, apiError } from '@/lib/api/contracts';
@@ -12,11 +6,14 @@ import { prisma } from '@/lib/prisma';
 import { emailService } from '@/features/email/services/EmailService';
 import { randomBytes } from 'crypto';
 import { logger } from '@/lib/logger/logger';
+import { rateLimit } from '@/lib/redis/rate-limiter';
+
+export const dynamic = 'force-dynamic';
 
 const log = logger.forService('team-api');
 
 const inviteSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email('Invalid email address format'),
   role: z.enum(['ADMIN', 'MEMBER']),
 });
 
@@ -28,10 +25,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ── Rate Limiting ──
+    const identifier = `team_invitations:${session.user.id}`;
+    const limitResult = await rateLimit(identifier, 20, 60);
+
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.` },
+        { status: 429 }
+      );
+    }
+
     // Authorization check
     if (session.membership.role !== 'OWNER' && session.membership.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
 
     const body = await request.json();
     const parsed = inviteSchema.safeParse(body);

@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auditCopilotService } from '@/features/ai/services/AuditCopilotService';
 import { getSession } from '@/lib/auth/session';
 import { logger } from '@/lib/logger/logger';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/redis/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.forService('copilot-api-chat');
+
+const chatSchema = z.object({
+  conversationId: z.string().min(1, 'Invalid conversation ID format'),
+  question: z.string().min(1, 'Question cannot be empty').max(2000, 'Question is too long'),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,14 +22,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { conversationId, question } = body;
+    // ── Rate Limiting ──
+    const identifier = `copilot_chat:${session.user.id}`;
+    // Limit to 30 requests per minute
+    const limitResult = await rateLimit(identifier, 30, 60);
 
-    if (!conversationId || !question) {
-      return NextResponse.json({ error: 'Missing conversationId or question' }, { status: 400 });
+    if (!limitResult.success) {
+      const errorRes = NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${limitResult.reset} seconds.` },
+        { status: 429 }
+      );
+      errorRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
+      errorRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
+      errorRes.headers.set('X-RateLimit-Reset', String(limitResult.reset));
+      return errorRes;
     }
 
-    const orgId = session?.organization.id || null;
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 });
+    }
+
+    const parsed = chatSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { conversationId, question } = parsed.data;
+    const orgId = session.organization.id;
 
     try {
       const response = await auditCopilotService.askQuestion({
@@ -31,7 +63,11 @@ export async function POST(request: NextRequest) {
         organizationId: orgId,
       });
 
-      return NextResponse.json({ data: response });
+      const successRes = NextResponse.json({ data: response });
+      successRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
+      successRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
+      successRes.headers.set('X-RateLimit-Reset', String(limitResult.reset));
+      return successRes;
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg === 'Forbidden') {
@@ -52,3 +88,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

@@ -1,16 +1,15 @@
-/**
- * GET /api/reports/:id — Retrieve a specific report by ID.
- */
-
-export const dynamic = 'force-dynamic';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/contracts';
 import { getSession } from '@/lib/auth/session';
 import { reportRepository } from '@/features/reports/repositories/ReportRepository';
 import { logger } from '@/lib/logger/logger';
+import { z } from 'zod';
+
+export const dynamic = 'force-dynamic';
 
 const log = logger.forService('reports-api');
+
+const idParamSchema = z.string().min(1, 'Invalid report ID format');
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +23,16 @@ export async function GET(
     }
 
     const { id } = await params;
+    const parsedId = idParamSchema.safeParse(id);
+    if (!parsedId.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsedId.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const report = await reportRepository.findById(id);
+
 
     if (!report) {
       return apiNotFound('Report not found');

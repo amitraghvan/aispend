@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSupabaseSession } from '@/lib/supabase/middleware';
+import { rateLimit } from '@/lib/redis/rate-limiter';
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -52,8 +53,27 @@ function isProtectedRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 1. Supabase Session Refresh ──
+  // ── 1. Rate Limiting for Auth Pages ──
+  const sensitiveAuthPages = ['/login', '/signup', '/forgot-password', '/reset-password'];
+  if (sensitiveAuthPages.includes(pathname)) {
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const limitResult = await rateLimit(`auth_page:${pathname}:${ip}`, 10, 60);
+
+    if (!limitResult.success) {
+      const errorRes = new NextResponse(
+        'Rate limit exceeded. Please try again later.',
+        { status: 429 }
+      );
+      errorRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
+      errorRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
+      errorRes.headers.set('X-RateLimit-Reset', String(limitResult.reset));
+      return errorRes;
+    }
+  }
+
+  // ── 2. Supabase Session Refresh ──
   const { response, user } = await updateSupabaseSession(request);
+
 
   // ── 2. Security Headers ──
   response.headers.set('X-Frame-Options', 'DENY');
