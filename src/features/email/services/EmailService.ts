@@ -201,7 +201,7 @@ export class EmailService {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'AI Spend <noreply@aispend.io>',
+        from: process.env.RESEND_FROM_EMAIL || 'AI Spend <onboarding@resend.dev>',
         to: [to],
         subject,
         html,
