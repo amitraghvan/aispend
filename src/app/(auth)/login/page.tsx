@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Card, Input } from '@/components/ui';
 import { ArrowRight, Mail, Lock, AlertCircle } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +31,7 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      router.push('/dashboard');
+      router.push(redirect);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -109,5 +112,19 @@ export default function LoginPage() {
         </Link>
       </div>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card className="p-8 text-center flex items-center justify-center min-h-[300px]">
+        <div className="text-center space-y-4">
+          <p className="text-sm text-[var(--muted-foreground)]">Loading...</p>
+        </div>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

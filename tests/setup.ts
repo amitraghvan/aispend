@@ -25,6 +25,7 @@ vi.mock('@/lib/redis/redis', () => ({
     set: vi.fn().mockResolvedValue('OK'),
     del: vi.fn().mockResolvedValue(1),
     keys: vi.fn().mockResolvedValue([]),
+    zrange: vi.fn().mockResolvedValue([]),
     pipeline: vi.fn(() => ({
       zremrangebyscore: vi.fn().mockReturnThis(),
       zcard: vi.fn().mockReturnThis(),

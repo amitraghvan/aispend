@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export interface AuthContextType {
@@ -82,6 +83,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSession();
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setLoading(true);
+        await fetchSession();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setOrganization(null);
+        setRole(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (

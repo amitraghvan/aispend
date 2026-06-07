@@ -44,22 +44,37 @@ export async function getSession(): Promise<AuthSession | null> {
     }
   });
 
-  // 2. If user doesn't exist in the database, provision them dynamically!
-  if (!dbUser) {
+  // 2. If user doesn't exist in the database or has no memberships, provision them dynamically!
+  if (!dbUser || dbUser.memberships.length === 0) {
     const orgName = (supabaseUser.user_metadata?.organization_name as string) ?? 'My Organization';
     const orgSlug = (supabaseUser.user_metadata?.organization_slug as string) ?? orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const userRole = (supabaseUser.user_metadata?.role as 'OWNER' | 'ADMIN' | 'MEMBER') ?? 'OWNER';
 
+    const originalDbUser = dbUser;
+
     dbUser = await prisma.$transaction(async (tx) => {
-      // Create user
-      const createdUser = await tx.user.create({
-        data: {
-          supabaseId: supabaseUser.id,
-          email: supabaseUser.email ?? '',
-          name: (supabaseUser.user_metadata?.name as string) ?? null,
-          avatarUrl: (supabaseUser.user_metadata?.avatar_url as string) ?? null,
-        }
-      });
+      let userRecord;
+      if (!originalDbUser) {
+        // Create user
+        userRecord = await tx.user.create({
+          data: {
+            supabaseId: supabaseUser.id,
+            email: supabaseUser.email ?? '',
+            name: (supabaseUser.user_metadata?.name as string) ?? null,
+            avatarUrl: (supabaseUser.user_metadata?.avatar_url as string) ?? null,
+          }
+        });
+      } else {
+        // Update user to sync supabaseId and any missing name/avatar
+        userRecord = await tx.user.update({
+          where: { id: originalDbUser.id },
+          data: {
+            supabaseId: supabaseUser.id,
+            name: originalDbUser.name ?? ((supabaseUser.user_metadata?.name as string) ?? null),
+            avatarUrl: originalDbUser.avatarUrl ?? ((supabaseUser.user_metadata?.avatar_url as string) ?? null),
+          }
+        });
+      }
 
       // Find or create organization
       let org = await tx.organization.findUnique({
@@ -78,7 +93,7 @@ export async function getSession(): Promise<AuthSession | null> {
       // Create membership
       const membership = await tx.membership.create({
         data: {
-          userId: createdUser.id,
+          userId: userRecord.id,
           organizationId: org.id,
           role: userRole,
         },
@@ -86,7 +101,7 @@ export async function getSession(): Promise<AuthSession | null> {
       });
 
       return {
-        ...createdUser,
+        ...userRecord,
         memberships: [membership]
       };
     });

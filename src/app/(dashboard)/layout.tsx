@@ -25,7 +25,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+      router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
     }
   }, [user, loading, router]);
 

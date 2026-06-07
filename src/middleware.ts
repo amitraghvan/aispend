@@ -95,7 +95,9 @@ export async function middleware(request: NextRequest) {
       '/api/audit',
       '/api/audits',
       '/api/save-report',
-      '/api/share/create'
+      '/api/share/create',
+      '/api/ai',
+      '/api/copilot'
     ].some(prefix => pathname.startsWith(prefix));
 
     if (isProtectedApi && !user) {
