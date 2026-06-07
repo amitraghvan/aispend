@@ -23,6 +23,7 @@ import { GET as shareTokenGET } from '@/app/api/share/[token]/route';
 import { GET as reportGet } from '@/app/api/reports/[id]/route';
 import { GET as reportsList } from '@/app/api/reports/route';
 import { POST as teamInvitePOST } from '@/app/api/team/invitations/route';
+import { POST as auditPOST, GET as auditGET } from '@/app/api/audits/route';
 
 vi.mock('@/lib/auth/session', () => ({
   getSession: vi.fn(),
@@ -325,6 +326,82 @@ describe('Phase 6C Security Hardening & Penetration Testing', () => {
       });
       const res = await teamInvitePOST(req);
       expect(res.status).toBe(201);
+    });
+  });
+
+  describe('Audit Endpoints Session & Rate Limit Protection', () => {
+    it('POST /api/audits should return 401 if unauthorized', async () => {
+      vi.mocked(getSession).mockResolvedValue(null);
+      const req = new NextRequest('http://localhost/api/audits', {
+        method: 'POST',
+        body: JSON.stringify({ items: [] }),
+      });
+      const res = await auditPOST(req);
+      expect(res.status).toBe(401);
+    });
+
+    it('GET /api/audits should return 401 if unauthorized', async () => {
+      vi.mocked(getSession).mockResolvedValue(null);
+      const req = new NextRequest('http://localhost/api/audits', {
+        method: 'GET',
+      });
+      const res = await auditGET(req);
+      expect(res.status).toBe(401);
+    });
+
+    it('POST /api/audits should return 429 if rate limited', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      vi.mocked(rateLimit).mockResolvedValue({ success: false, limit: 10, remaining: 0, reset: 3600 });
+      const req = new NextRequest('http://localhost/api/audits', {
+        method: 'POST',
+        body: JSON.stringify({ items: [{ toolId: 't1', toolName: 'Slack', planName: 'Pro', monthlySpend: 50, seatCount: 10, teamSize: 10, useCase: 'mixed' }] }),
+      });
+      const res = await auditPOST(req);
+      expect(res.status).toBe(429);
+    });
+  });
+
+  describe('Copilot Authenticated & BOLA Conversation Access Checks', () => {
+    it('GET /api/copilot/conversations should load if session is present and audit is owned', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.audit.findUnique.mockResolvedValue({
+        id: 'audit-123',
+        organizationId: 'org-123',
+      } as any);
+      prismaMock.conversation.findMany.mockResolvedValue([
+        { id: 'c-123', title: 'Convo' },
+      ] as any);
+
+      const req = new NextRequest('http://localhost/api/copilot/conversations?auditId=audit-123', {
+        method: 'GET',
+      });
+      const res = await conversationsGET(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('GET /api/copilot/conversations should return 403 (BOLA) if audit is owned by different organization', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.audit.findUnique.mockResolvedValue({
+        id: 'audit-123',
+        organizationId: 'org-other',
+      } as any);
+
+      const req = new NextRequest('http://localhost/api/copilot/conversations?auditId=audit-123', {
+        method: 'GET',
+      });
+      const res = await conversationsGET(req);
+      expect(res.status).toBe(403);
+    });
+
+    it('GET /api/copilot/conversations/[id] should return 404 (BOLA) if conversation belongs to different organization', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.conversation.findFirst.mockResolvedValue(null);
+
+      const req = new NextRequest('http://localhost/api/copilot/conversations/c-other', {
+        method: 'GET',
+      });
+      const res = await conversationIdGET(req, { params: Promise.resolve({ id: 'c-other' }) });
+      expect(res.status).toBe(404);
     });
   });
 });

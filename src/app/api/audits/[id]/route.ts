@@ -35,10 +35,7 @@ export async function GET(
     if (cached) {
       const audit = await auditRepository.findById(id);
       if (audit) {
-        if (
-          audit.organizationId &&
-          audit.organizationId !== session.organization.id
-        ) {
+        if (audit.organizationId !== session.organization.id) {
           return NextResponse.json(
             { error: "Forbidden" },
             { status: 403 }
@@ -51,10 +48,7 @@ export async function GET(
     const audit = await auditRepository.findById(id);
     if (!audit) return apiNotFound('Audit not found');
 
-    if (
-      audit.organizationId &&
-      audit.organizationId !== session.organization.id
-    ) {
+    if (audit.organizationId !== session.organization.id) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
@@ -88,10 +82,7 @@ export async function DELETE(
     const audit = await auditRepository.findById(id);
     if (!audit) return apiNotFound('Audit not found');
 
-    if (
-      audit.organizationId &&
-      audit.organizationId !== session.organization.id
-    ) {
+    if (audit.organizationId !== session.organization.id) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

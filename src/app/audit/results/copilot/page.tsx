@@ -49,6 +49,7 @@ function CopilotDashboardInner() {
   const [activeConvoId, setActiveConvoId] = useState<string | null>(initialConvoId);
   const [messages, setMessages] = useState<ParsedMessage[]>([]);
   const [input, setInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
   
   // UI States
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,6 +136,7 @@ function CopilotDashboardInner() {
   // Load conversations list
   const loadConversations = async (selectLatest = false) => {
     if (!auditId) return;
+    setError(null);
     try {
       const res = await fetch(`/api/copilot/conversations?auditId=${auditId}`);
       if (res.ok) {
@@ -144,9 +146,18 @@ function CopilotDashboardInner() {
         if (selectLatest && data && data.length > 0) {
           setActiveConvoId(data[0].id);
         }
+      } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
       }
     } catch (err) {
       console.error('Failed to load conversations list', err);
+      setError('500');
     }
   };
 
@@ -163,15 +174,25 @@ function CopilotDashboardInner() {
 
     async function loadMessages() {
       setLoadingHistory(true);
+      setError(null);
       try {
         const res = await fetch(`/api/copilot/conversations/${activeConvoId}`);
         if (res.ok) {
           const detail = await res.json();
           const parsed = (detail.data.messages || []).map(parseMessage);
           setMessages(parsed);
+        } else {
+          if (res.status === 401) {
+            setError('401');
+          } else if (res.status === 403) {
+            setError('403');
+          } else {
+            setError('500');
+          }
         }
       } catch (err) {
         console.error('Failed to fetch conversation details', err);
+        setError('500');
       } finally {
         setLoadingHistory(false);
       }
@@ -184,6 +205,7 @@ function CopilotDashboardInner() {
   const createNewSession = async () => {
     if (!auditId || creatingConvo) return;
     setCreatingConvo(true);
+    setError(null);
     try {
       const res = await fetch('/api/copilot/conversations', {
         method: 'POST',
@@ -206,9 +228,18 @@ function CopilotDashboardInner() {
             createdAt: new Date().toISOString(),
           }
         ]);
+      } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
       }
     } catch (err) {
       console.error('Failed to start new conversation session', err);
+      setError('500');
     } finally {
       setCreatingConvo(false);
     }
@@ -228,6 +259,14 @@ function CopilotDashboardInner() {
         setConversations(prev =>
           prev.map(c => (c.id === id ? { ...c, isPinned: !currentPinned } : c))
         );
+      } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
       }
     } catch (err) {
       console.error('Failed to toggle pin state', err);
@@ -247,6 +286,14 @@ function CopilotDashboardInner() {
         setConversations(prev => prev.filter(c => c.id !== id));
         if (activeConvoId === id) {
           setActiveConvoId(null);
+        }
+      } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
         }
       }
     } catch (err) {
@@ -290,6 +337,13 @@ function CopilotDashboardInner() {
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error('Failed reply');
       }
     } catch {
@@ -340,6 +394,13 @@ function CopilotDashboardInner() {
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error();
       }
     } catch {
@@ -389,6 +450,13 @@ function CopilotDashboardInner() {
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error();
       }
     } catch {
@@ -445,8 +513,8 @@ function CopilotDashboardInner() {
           </Link>
           <button
             onClick={createNewSession}
-            disabled={creatingConvo}
-            className="p-1.5 rounded-lg bg-purple-600/10 text-purple-600 hover:bg-purple-600 hover:text-white transition-colors cursor-pointer"
+            disabled={creatingConvo || !!error}
+            className="p-1.5 rounded-lg bg-purple-600/10 text-purple-600 hover:bg-purple-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
             title="Start New Chat Session"
           >
             {creatingConvo ? <Spinner className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -484,7 +552,11 @@ function CopilotDashboardInner() {
 
         {/* List of Conversations */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredConvos.length === 0 ? (
+          {error ? (
+            <div className="py-8 text-center text-xs text-red-500">
+              Session is invalid. Please sign in.
+            </div>
+          ) : filteredConvos.length === 0 ? (
             <div className="py-8 text-center text-xs text-[var(--muted-foreground)]">
               No conversations found.
             </div>
@@ -562,7 +634,26 @@ function CopilotDashboardInner() {
 
         {/* Chat Thread */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[var(--background)]/10 min-h-0">
-          {!activeConvoId ? (
+          {error ? (
+            <div className="h-full flex items-center justify-center">
+              <Card className="text-center max-w-sm p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-sm">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h3 className="font-bold text-sm mb-1 text-[var(--foreground)]">
+                  {error === '401' ? 'Authentication Required' : error === '403' ? 'Access Denied' : 'Service Error'}
+                </h3>
+                <p className="text-xs text-[var(--muted-foreground)] mb-6 leading-relaxed">
+                  {error === '401' ? 'Please sign in to use AI Copilot.' : 
+                   error === '403' ? 'You do not have access to this conversation.' : 
+                   'Copilot temporarily unavailable.'}
+                </p>
+                {error === '401' && (
+                  <Link href="/login" passHref legacyBehavior>
+                    <a><Button>Sign In</Button></a>
+                  </Link>
+                )}
+              </Card>
+            </div>
+          ) : !activeConvoId ? (
             <div className="h-full flex items-center justify-center">
               <Card className="text-center max-w-sm p-6 border-dashed">
                 <Sparkles className="w-12 h-12 text-purple-600 mx-auto mb-4 animate-pulse" />
@@ -725,7 +816,7 @@ function CopilotDashboardInner() {
         </div>
 
         {/* Input Bar & Actions (Sticky Bottom) */}
-        {activeConvoId && (
+        {activeConvoId && !error && (
           <div className="p-4 border-t border-[var(--border)] bg-[var(--card)]/90 backdrop-blur-xl absolute bottom-0 left-0 right-0 max-w-4xl mx-auto rounded-t-2xl shadow-xl z-20">
             {/* Quick Suggestions */}
             <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none mb-3">

@@ -16,13 +16,10 @@ const PUBLIC_ROUTES = [
   '/forgot-password',
   '/reset-password',
   '/verify-email',
-  '/audit',
-  '/audit/results',
 ];
 
 // API routes that allow unauthenticated access
 const PUBLIC_API_ROUTES = [
-  '/api/audits',       // POST: free audit (no auth needed)
   '/api/leads',        // POST: lead capture (no auth needed)
   '/api/auth',         // Auth callbacks
 ];
@@ -30,6 +27,7 @@ const PUBLIC_API_ROUTES = [
 // Routes that require authentication
 const PROTECTED_PREFIXES = [
   '/dashboard',
+  '/audit',
 ];
 
 function isPublicRoute(pathname: string): boolean {
@@ -91,6 +89,23 @@ export async function middleware(request: NextRequest) {
   );
 
   // ── 3. Route Protection ──
+  // For protected APIs, return 401 Unauthorized instead of redirecting
+  if (pathname.startsWith('/api/')) {
+    const isProtectedApi = [
+      '/api/audit',
+      '/api/audits',
+      '/api/save-report',
+      '/api/share/create'
+    ].some(prefix => pathname.startsWith(prefix));
+
+    if (isProtectedApi && !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+  }
+
   // If the route is protected and no user is authenticated, redirect to login
   if (isProtectedRoute(pathname) && !user) {
     const loginUrl = new URL('/login', request.url);

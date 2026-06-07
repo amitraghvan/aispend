@@ -45,14 +45,12 @@ export async function POST(request: NextRequest) {
       const audit = await prisma.audit.findUnique({ where: { id: auditId } });
       if (!audit) return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
 
-      if (audit.organizationId) {
-        const session = await getSession();
-        if (!session) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        if (session.organization.id !== audit.organizationId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (audit.organizationId !== session.organization.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       const recommendationCount = await prisma.recommendation.count({ where: { auditId } });

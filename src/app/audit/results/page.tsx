@@ -1,7 +1,8 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useMemo, Suspense, useEffect } from 'react';
+import { useAuth } from '@/lib/auth/auth-context';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, KpiCard, ScoreRing, Progress, Input, FadeIn, Spinner } from '@/components/ui';
 import { 
@@ -558,6 +559,8 @@ function ShareSection({ auditId }: { auditId: string }) {
    ═══════════════════════════════════════════════════ */
 function ResultsInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user, organization, loading: authLoading } = useAuth();
   const raw = searchParams.get('data');
   const auditIdParam = searchParams.get('auditId');
   const [showCopilot, setShowCopilot] = useState(false);
@@ -565,6 +568,12 @@ function ResultsInner() {
   const [data, setData] = useState<AuditResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
 
   // AI Insights States
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
@@ -685,13 +694,27 @@ function ResultsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="text-center">
           <span className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin inline-block mb-4" />
           <p className="text-sm text-[var(--muted-foreground)]">Loading results...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Ownership Validation: Ensure audit organization matches session organization
+  if (data && organization && data.organizationId && data.organizationId !== organization.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <Card className="text-center max-w-md p-6">
+          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Access Denied</h2>
+          <p className="text-sm text-[var(--muted-foreground)] mb-6">You do not have access to view this audit report.</p>
+          <Link href="/dashboard"><Button>Go to Dashboard</Button></Link>
+        </Card>
       </div>
     );
   }

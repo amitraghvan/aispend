@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Card, Input, Select, StepIndicator, Badge, Spinner, FadeIn } from '@/components/ui';
 import { ArrowLeft, ArrowRight, Plus, X, Sparkles, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/auth-context';
 
 /* ─── TYPES ─── */
 interface ToolEntry {
@@ -254,9 +255,16 @@ function Step5Running() {
    ═══════════════════════════════════════════════════ */
 export default function AuditPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
   const [data, setData] = useState<AuditFormData>({
     companyName: '',
     companySize: '',
@@ -268,6 +276,14 @@ export default function AuditPage() {
     setData(prev => ({ ...prev, ...partial }));
   }, []);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <Spinner className="w-8 h-8 text-purple-600" />
+      </div>
+    );
+  }
+
   const canNext = () => {
     if (step === 0) return data.companyName.length > 0;
     if (step === 1) return data.tools.length > 0;
@@ -276,6 +292,10 @@ export default function AuditPage() {
   };
 
   const runAudit = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
     setIsRunning(true);
     setStep(4);
     setError('');

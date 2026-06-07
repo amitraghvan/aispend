@@ -45,14 +45,12 @@ export async function POST(request: NextRequest) {
 
       if (!rec) return NextResponse.json({ error: 'Recommendation not found' }, { status: 404 });
 
-      if (rec.audit.organizationId) {
-        const session = await getSession();
-        if (!session) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        if (session.organization.id !== rec.audit.organizationId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (rec.audit.organizationId !== session.organization.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
       inputData = {

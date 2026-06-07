@@ -24,8 +24,18 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'GET /api/copilot/conversations - Session missing');
+      log.warn('copilot-401', 'GET /api/copilot/conversations - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'GET /api/copilot/conversations - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'GET /api/copilot/conversations - Org ID missing');
+      log.warn('copilot-403', 'GET /api/copilot/conversations - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'GET /api/copilot/conversations - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `conversations_get:${session.user.id}`;
@@ -64,7 +74,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
     }
 
-    if (audit.organizationId && session.organization.id !== audit.organizationId) {
+    if (audit.organizationId !== session.organization.id) {
+      log.warn('copilot-conversation-missing', 'GET /api/copilot/conversations - Audit organization mismatch (BOLA)');
+      log.warn('copilot-403', 'GET /api/copilot/conversations - Returning 403');
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -75,9 +87,10 @@ export async function GET(request: NextRequest) {
       organizationId: orgId,
     });
 
+    log.info('copilot-conversation-found', 'GET /api/copilot/conversations - Conversations retrieved successfully', { count: conversations.length });
     return NextResponse.json({ data: conversations });
   } catch (error) {
-    log.error('list_conversations_error', 'Failed to list conversations', {
+    log.error('copilot-500', 'GET /api/copilot/conversations - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -89,8 +102,18 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'POST /api/copilot/conversations - Session missing');
+      log.warn('copilot-401', 'POST /api/copilot/conversations - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'POST /api/copilot/conversations - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'POST /api/copilot/conversations - Org ID missing');
+      log.warn('copilot-403', 'POST /api/copilot/conversations - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'POST /api/copilot/conversations - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `conversations_post:${session.user.id}`;
@@ -129,7 +152,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
     }
 
-    if (audit.organizationId && session.organization.id !== audit.organizationId) {
+    if (audit.organizationId !== session.organization.id) {
+      log.warn('copilot-conversation-missing', 'POST /api/copilot/conversations - Audit organization mismatch (BOLA)');
+      log.warn('copilot-403', 'POST /api/copilot/conversations - Returning 403');
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -141,9 +166,10 @@ export async function POST(request: NextRequest) {
       title,
     });
 
+    log.info('copilot-conversation-found', 'POST /api/copilot/conversations - Conversation created successfully', { convoId: conversation.id });
     return NextResponse.json({ data: conversation }, { status: 201 });
   } catch (error) {
-    log.error('create_conversation_error', 'Failed to create conversation', {
+    log.error('copilot-500', 'POST /api/copilot/conversations - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -23,8 +23,18 @@ export async function GET(
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'GET /api/copilot/conversations/[id] - Session missing');
+      log.warn('copilot-401', 'GET /api/copilot/conversations/[id] - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'GET /api/copilot/conversations/[id] - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'GET /api/copilot/conversations/[id] - Org ID missing');
+      log.warn('copilot-403', 'GET /api/copilot/conversations/[id] - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'GET /api/copilot/conversations/[id] - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `conversation_detail_get:${session.user.id}`;
@@ -50,9 +60,12 @@ export async function GET(
 
     try {
       const conversation = await conversationService.getConversation(id, orgId);
+      log.info('copilot-conversation-found', 'GET /api/copilot/conversations/[id] - Conversation found', { convoId: id });
       return NextResponse.json({ data: conversation });
     } catch (err) {
+      log.warn('copilot-conversation-missing', 'GET /api/copilot/conversations/[id] - Conversation not found or access denied', { convoId: id });
       if (err instanceof Error && err.message === 'Forbidden') {
+        log.warn('copilot-403', 'GET /api/copilot/conversations/[id] - Returning 403');
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       if (err instanceof Error && err.message === 'Conversation not found') {
@@ -61,7 +74,7 @@ export async function GET(
       throw err;
     }
   } catch (error) {
-    log.error('get_conversation_error', 'Failed to retrieve conversation details', {
+    log.error('copilot-500', 'GET /api/copilot/conversations/[id] - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -76,8 +89,18 @@ export async function PATCH(
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'PATCH /api/copilot/conversations/[id] - Session missing');
+      log.warn('copilot-401', 'PATCH /api/copilot/conversations/[id] - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'PATCH /api/copilot/conversations/[id] - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'PATCH /api/copilot/conversations/[id] - Org ID missing');
+      log.warn('copilot-403', 'PATCH /api/copilot/conversations/[id] - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'PATCH /api/copilot/conversations/[id] - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `conversation_detail_patch:${session.user.id}`;
@@ -119,15 +142,17 @@ export async function PATCH(
 
     try {
       const updated = await conversationService.pinConversation(id, isPinned, orgId);
+      log.info('copilot-conversation-found', 'PATCH /api/copilot/conversations/[id] - Conversation pinned', { convoId: id });
       return NextResponse.json({ data: updated });
     } catch (err) {
+      log.warn('copilot-conversation-missing', 'PATCH /api/copilot/conversations/[id] - Conversation not found or access denied', { convoId: id });
       if (err instanceof Error && err.message === 'Conversation not found') {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
       }
       throw err;
     }
   } catch (error) {
-    log.error('patch_conversation_error', 'Failed to update conversation', {
+    log.error('copilot-500', 'PATCH /api/copilot/conversations/[id] - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -142,8 +167,18 @@ export async function DELETE(
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'DELETE /api/copilot/conversations/[id] - Session missing');
+      log.warn('copilot-401', 'DELETE /api/copilot/conversations/[id] - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'DELETE /api/copilot/conversations/[id] - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'DELETE /api/copilot/conversations/[id] - Org ID missing');
+      log.warn('copilot-403', 'DELETE /api/copilot/conversations/[id] - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'DELETE /api/copilot/conversations/[id] - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `conversation_detail_delete:${session.user.id}`;
@@ -169,15 +204,17 @@ export async function DELETE(
 
     try {
       await conversationService.deleteConversation(id, orgId);
+      log.info('copilot-conversation-found', 'DELETE /api/copilot/conversations/[id] - Conversation deleted', { convoId: id });
       return NextResponse.json({ success: true });
     } catch (err) {
+      log.warn('copilot-conversation-missing', 'DELETE /api/copilot/conversations/[id] - Conversation not found or access denied', { convoId: id });
       if (err instanceof Error && err.message === 'Conversation not found') {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
       }
       throw err;
     }
   } catch (error) {
-    log.error('delete_conversation_error', 'Failed to delete conversation', {
+    log.error('copilot-500', 'DELETE /api/copilot/conversations/[id] - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

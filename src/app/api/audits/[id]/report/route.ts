@@ -32,10 +32,7 @@ export async function POST(
     const audit = await auditRepository.findById(id);
     if (!audit) return apiNotFound('Audit not found');
 
-    if (
-      audit.organizationId &&
-      audit.organizationId !== session.organization.id
-    ) {
+    if (audit.organizationId !== session.organization.id) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

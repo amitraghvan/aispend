@@ -40,6 +40,7 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'quick'>('chat');
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Parse custom structured payloads in messages
@@ -103,6 +104,7 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
 
     async function initConversation() {
       setStarting(true);
+      setError(null);
       try {
         // 1. Fetch conversations for this audit
         const res = await fetch(`/api/copilot/conversations?auditId=${auditId}`);
@@ -121,8 +123,28 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
               setMessages(parsed);
               setStarting(false);
               return;
+            } else {
+              if (detailRes.status === 401) {
+                setError('401');
+              } else if (detailRes.status === 403) {
+                setError('403');
+              } else {
+                setError('500');
+              }
+              setStarting(false);
+              return;
             }
           }
+        } else {
+          if (res.status === 401) {
+            setError('401');
+          } else if (res.status === 403) {
+            setError('403');
+          } else {
+            setError('500');
+          }
+          setStarting(false);
+          return;
         }
 
         // 2. If no conversation exists, create a new one
@@ -143,9 +165,18 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
               createdAt: new Date().toISOString(),
             }
           ]);
+        } else {
+          if (createRes.status === 401) {
+            setError('401');
+          } else if (createRes.status === 403) {
+            setError('403');
+          } else {
+            setError('500');
+          }
         }
       } catch (err) {
         console.error('Failed to initialize conversation', err);
+        setError('500');
       } finally {
         setStarting(false);
       }
@@ -190,6 +221,13 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error('Failed to get response');
       }
     } catch {
@@ -249,6 +287,13 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error('Failed to get plan');
       }
     } catch {
@@ -300,6 +345,13 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
           }
         ]);
       } else {
+        if (res.status === 401) {
+          setError('401');
+        } else if (res.status === 403) {
+          setError('403');
+        } else {
+          setError('500');
+        }
         throw new Error('Failed to get briefing');
       }
     } catch {
@@ -376,6 +428,27 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
                   <div className="text-center space-y-3">
                     <Spinner className="w-8 h-8 text-purple-600 mx-auto" />
                     <p className="text-xs text-[var(--muted-foreground)]">Initializing Copilot Agent...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="h-full flex items-center justify-center p-4">
+                  <div className="text-center max-w-sm p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-sm">
+                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-[var(--foreground)] mb-1">
+                      {error === '401' ? 'Authentication Required' : error === '403' ? 'Access Denied' : 'Service Error'}
+                    </p>
+                    <p className="text-xs text-[var(--muted-foreground)] mb-4">
+                      {error === '401' ? 'Please sign in to use AI Copilot.' : 
+                       error === '403' ? 'You do not have access to this conversation.' : 
+                       'Copilot temporarily unavailable.'}
+                    </p>
+                    {error === '401' && (
+                      <Link href="/login" passHref legacyBehavior>
+                        <a className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors">
+                          Sign In
+                        </a>
+                      </Link>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -510,7 +583,7 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
             </div>
 
             {/* Quick Action Bar */}
-            {!starting && activeTab === 'chat' && (
+            {!starting && !error && activeTab === 'chat' && (
               <div className="px-4 py-2 bg-[var(--card)] border-t border-[var(--border)] flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none">
                 <button
                   onClick={triggerActionPlan}
@@ -546,7 +619,7 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask a question about your audit..."
                   className="flex-1 bg-transparent border-0 text-xs focus:outline-none text-[var(--foreground)] py-1.5 placeholder:text-[var(--muted-foreground)]"
-                  disabled={loading || starting}
+                  disabled={loading || starting || !!error}
                 />
                 <div className="flex items-center gap-2 ml-2">
                   <kbd className="hidden sm:inline-flex items-center h-5 select-none pointer-events-none rounded border bg-[var(--card)] px-1.5 font-mono text-[9px] font-medium text-[var(--muted-foreground)] border-[var(--border)] gap-0.5">
@@ -554,7 +627,7 @@ export default function CopilotDrawer({ isOpen, onClose, auditId }: CopilotDrawe
                   </kbd>
                   <button
                     type="submit"
-                    disabled={!input.trim() || loading || starting}
+                    disabled={!input.trim() || loading || starting || !!error}
                     className="p-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />

@@ -19,8 +19,18 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'POST /api/copilot/chat - Session missing');
+      log.warn('copilot-401', 'POST /api/copilot/chat - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'POST /api/copilot/chat - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'POST /api/copilot/chat - Org ID missing');
+      log.warn('copilot-403', 'POST /api/copilot/chat - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'POST /api/copilot/chat - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `copilot_chat:${session.user.id}`;
@@ -63,6 +73,7 @@ export async function POST(request: NextRequest) {
         organizationId: orgId,
       });
 
+      log.info('copilot-conversation-found', 'POST /api/copilot/chat - Conversation found & chat processed', { conversationId });
       const successRes = NextResponse.json({ data: response });
       successRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
       successRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
@@ -70,7 +81,9 @@ export async function POST(request: NextRequest) {
       return successRes;
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
+      log.warn('copilot-conversation-missing', 'POST /api/copilot/chat - Conversation not found or access denied', { conversationId });
       if (msg === 'Forbidden') {
+        log.warn('copilot-403', 'POST /api/copilot/chat - Returning 403');
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       if (msg === 'Conversation not found' || msg === 'Conversation not found or access denied') {
@@ -82,7 +95,7 @@ export async function POST(request: NextRequest) {
       throw err;
     }
   } catch (error) {
-    log.error('chat_api_error', 'Failed to generate copilot reply', {
+    log.error('copilot-500', 'POST /api/copilot/chat - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -62,6 +62,19 @@ describe('Audit API Security and IDOR Enforcement', () => {
       const req = new NextRequest('http://localhost/api/audits/audit-abc');
       const res = await auditGET(req, { params: Promise.resolve({ id: 'audit-abc' }) });
 
+    });
+
+    it('should return 403 Forbidden if a user accesses an audit with null organizationId', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.audit.findFirst.mockResolvedValue({
+        id: 'audit-abc',
+        organizationId: null,
+        status: 'COMPLETED',
+      } as any);
+
+      const req = new NextRequest('http://localhost/api/audits/audit-abc');
+      const res = await auditGET(req, { params: Promise.resolve({ id: 'audit-abc' }) });
+
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.error).toBe('Forbidden');
@@ -89,6 +102,19 @@ describe('Audit API Security and IDOR Enforcement', () => {
       const req = new NextRequest('http://localhost/api/audits/audit-abc', { method: 'DELETE' });
       const res = await auditDELETE(req, { params: Promise.resolve({ id: 'audit-abc' }) });
 
+    });
+
+    it('should return 403 Forbidden if a user attempts to delete an audit with null organizationId', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.audit.findFirst.mockResolvedValue({
+        id: 'audit-abc',
+        organizationId: null,
+        status: 'COMPLETED',
+      } as any);
+
+      const req = new NextRequest('http://localhost/api/audits/audit-abc', { method: 'DELETE' });
+      const res = await auditDELETE(req, { params: Promise.resolve({ id: 'audit-abc' }) });
+
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.error).toBe('Forbidden');
@@ -110,6 +136,22 @@ describe('Audit API Security and IDOR Enforcement', () => {
       prismaMock.audit.findFirst.mockResolvedValue({
         id: 'audit-abc',
         organizationId: 'org-other',
+        status: 'COMPLETED',
+      } as any);
+
+      const req = new NextRequest('http://localhost/api/audits/audit-abc/report', { method: 'POST' });
+      const res = await reportPOST(req, { params: Promise.resolve({ id: 'audit-abc' }) });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toBe('Forbidden');
+    });
+
+    it('should return 403 Forbidden if a user attempts to generate a report for an audit with null organizationId', async () => {
+      vi.mocked(getSession).mockResolvedValue(mockUserSession as any);
+      prismaMock.audit.findFirst.mockResolvedValue({
+        id: 'audit-abc',
+        organizationId: null,
         status: 'COMPLETED',
       } as any);
 

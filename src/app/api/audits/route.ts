@@ -33,10 +33,17 @@ import { rateLimit } from '@/lib/redis/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     // ── Rate Limiting ──
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-    const session = await getSession();
-    const identifier = session ? `audit:${session.user.id}` : `audit:anon:${ip}`;
+    const identifier = `audit:${session.user.id}`;
     
     // Allow 10 audits per hour
     const limitResult = await rateLimit(identifier, 10, 3600);

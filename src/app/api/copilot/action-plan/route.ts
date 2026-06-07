@@ -19,8 +19,18 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
 
     if (!session) {
+      log.warn('copilot-session-missing', 'POST /api/copilot/action-plan - Session missing');
+      log.warn('copilot-401', 'POST /api/copilot/action-plan - Returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    log.info('copilot-session-found', 'POST /api/copilot/action-plan - Session found', { userId: session.user.id });
+
+    if (!session.organization?.id) {
+      log.warn('copilot-org-missing', 'POST /api/copilot/action-plan - Org ID missing');
+      log.warn('copilot-403', 'POST /api/copilot/action-plan - Returning 403');
+      return NextResponse.json({ error: 'Organization ID is missing in session' }, { status: 403 });
+    }
+    log.info('copilot-org-found', 'POST /api/copilot/action-plan - Org ID found', { orgId: session.organization.id });
 
     // ── Rate Limiting ──
     const identifier = `copilot_action_plan:${session.user.id}`;
@@ -62,13 +72,16 @@ export async function POST(request: NextRequest) {
         bypassCache: !!bypassCache,
       });
 
+      log.info('copilot-conversation-found', 'POST /api/copilot/action-plan - Audit verified & action plan processed', { auditId });
       const successRes = NextResponse.json({ data: plan });
       successRes.headers.set('X-RateLimit-Limit', String(limitResult.limit));
       successRes.headers.set('X-RateLimit-Remaining', String(limitResult.remaining));
       successRes.headers.set('X-RateLimit-Reset', String(limitResult.reset));
       return successRes;
     } catch (err) {
+      log.warn('copilot-conversation-missing', 'POST /api/copilot/action-plan - Audit not found or access denied', { auditId });
       if (err instanceof Error && err.message === 'Forbidden') {
+        log.warn('copilot-403', 'POST /api/copilot/action-plan - Returning 403');
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       if (err instanceof Error && err.message === 'Audit not found') {
@@ -77,7 +90,7 @@ export async function POST(request: NextRequest) {
       throw err;
     }
   } catch (error) {
-    log.error('action_plan_api_error', 'Failed to generate copilot action plan', {
+    log.error('copilot-500', 'POST /api/copilot/action-plan - Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

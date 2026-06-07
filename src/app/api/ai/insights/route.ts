@@ -48,17 +48,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
       }
 
-      if (audit.organizationId) {
-        // Enforce session authorization
-        const session = await getSession();
-        if (!session) {
-          return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
-        if (session.organization.id !== audit.organizationId) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-        orgId = session.organization.id;
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
       }
+      if (audit.organizationId !== session.organization.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      orgId = session.organization.id;
     }
 
     const inputData = auditId ? auditId : (auditData as InMemoryAuditResult);

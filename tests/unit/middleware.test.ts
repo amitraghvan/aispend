@@ -85,7 +85,7 @@ describe('Middleware Route Protection', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 
-  it('should allow unauthenticated users to access /audit', async () => {
+  it('should redirect unauthenticated users from /audit to /login', async () => {
     const request = createRequest('/audit');
     
     const mockResponse = NextResponse.next();
@@ -96,7 +96,39 @@ describe('Middleware Route Protection', () => {
 
     const response = await middleware(request);
     
-    expect(response.status).toBe(200);
-    expect(response.headers.get('location')).toBeNull();
+    expect(response).toBeInstanceOf(NextResponse);
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('/login');
+  });
+
+  it('should redirect unauthenticated users from /audit/results to /login', async () => {
+    const request = createRequest('/audit/results');
+    
+    const mockResponse = NextResponse.next();
+    vi.mocked(updateSupabaseSession).mockResolvedValueOnce({
+      response: mockResponse,
+      user: null,
+    });
+
+    const response = await middleware(request);
+    
+    expect(response).toBeInstanceOf(NextResponse);
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('/login');
+  });
+
+  it('should return 401 response for protected API route /api/audits when unauthenticated', async () => {
+    const request = createRequest('/api/audits');
+    
+    const mockResponse = NextResponse.next();
+    vi.mocked(updateSupabaseSession).mockResolvedValueOnce({
+      response: mockResponse,
+      user: null,
+    });
+
+    const response = await middleware(request);
+    
+    expect(response).toBeInstanceOf(NextResponse);
+    expect(response.status).toBe(401);
   });
 });
