@@ -106,6 +106,9 @@ export class GroqProvider implements LLMProvider {
   private generateMockResponse<T>(schema: z.ZodType<T>): T {
     const dummyObj: Record<string, unknown> = {};
     
+    dummyObj.reply = "I recommend downgrading unused seat licenses on high-tier coding tools to optimize your monthly spend.";
+    dummyObj.suggestedFollowUps = ["How much can I save on seat downgrades?", "Which users are inactive?"];
+
     dummyObj.summary = "The AI spend audit reveals significant cost optimization opportunities across coding and research tools. By addressing redundancies and plan misfits, the company can improve its spending posture and boost stack health.";
     dummyObj.keyFindings = [
       "Detected redundant seat licenses on high-tier coding tools.",
@@ -150,6 +153,38 @@ export class GroqProvider implements LLMProvider {
         confidence: 0.85
       }
     ];
+
+    dummyObj.weeks = [
+      {
+        weekNumber: 1,
+        goal: "Initiate tool consolidation and license right-sizing",
+        steps: [
+          {
+            title: "Consolidate mixed-use writing models",
+            goal: "Standardize on single AI tool for copywriting",
+            impact: "Saves $200/mo by cancelling overlapping licenses",
+            complexity: "LOW",
+            priority: "CRITICAL",
+            actionableSteps: ["Review writing license list", "Cancel overlap subscription"]
+          }
+        ]
+      }
+    ];
+
+    dummyObj.implementationGuidance = [
+      "Navigate to subscription billing settings page",
+      "Revoke excess unused developer licenses",
+      "Confirm downgrade actions with the DevOps manager"
+    ];
+
+    dummyObj.peerComparison = "Your AI spend stance is slightly less efficient than peers in Technology sector.";
+    dummyObj.biggestWasteArea = "Overlapping development environment licenses on ChatGPT Team and Claude Pro.";
+    dummyObj.leadershipFocus = "Board leadership should focus on centralizing AI procurement.";
+    dummyObj.strategicRecommendations = [
+      "Create centralized SaaS inventory catalog",
+      "Standardize engineering team on single LLM coding provider"
+    ];
+    dummyObj.executiveSummary = "Your organization has $1,500/mo in potential savings headroom.";
 
     try {
       return schema.parse(dummyObj);

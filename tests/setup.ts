@@ -6,6 +6,8 @@ process.env.DIRECT_URL = 'postgresql://postgres:password@localhost:5432/postgres
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 process.env.SUPABASE_URL = 'https://mockref.supabase.co';
 process.env.SUPABASE_ANON_KEY = 'mockanon';
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://mockref.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mockanon';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'mockservice';
 process.env.GROQ_API_KEY = 'gsk_mock';
 process.env.RESEND_API_KEY = 're_mock';
@@ -72,6 +74,7 @@ const prismaMock = {
   },
   recommendation: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
     createMany: vi.fn(),
@@ -132,6 +135,20 @@ const prismaMock = {
   emailLog: {
     create: vi.fn(),
     update: vi.fn(),
+  },
+  conversation: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  message: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
   },
   $transaction: vi.fn((callback: unknown) => {
     if (typeof callback === 'function') return callback(prismaMock);

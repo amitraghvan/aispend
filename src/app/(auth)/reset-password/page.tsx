@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Input } from '@/components/ui';
 import { Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -29,15 +29,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      if (!isSupabaseConfigured()) {
-        setSuccess(true);
-        setTimeout(() => router.push('/login'), 2000);
-        return;
-      }
-
       const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error('Authentication service unavailable');
-
       const { error: authError } = await supabase.auth.updateUser({ password });
       if (authError) throw authError;
 

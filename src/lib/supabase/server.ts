@@ -13,7 +13,7 @@ export async function getSupabaseServerClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
   if (!url || !key) {
-    return null;
+    throw new Error('Supabase configuration missing');
   }
 
   const cookieStore = await cookies();
@@ -46,7 +46,7 @@ export async function getSupabaseAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
   if (!url || !key) {
-    return null;
+    throw new Error('Supabase configuration missing');
   }
 
   const cookieStore = await cookies();

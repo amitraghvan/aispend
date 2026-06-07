@@ -101,6 +101,7 @@ model Organization {
   settings     OrgSettings?
   events       Event[]
   apiUsages    ApiUsage[]
+  conversations Conversation[]
 
   @@index([slug])
   @@index([domain])
@@ -201,6 +202,7 @@ model Audit {
   items           AuditItem[]
   recommendations Recommendation[]
   reports         Report[]
+  conversations   Conversation[]
 
   @@index([organizationId])
   @@index([status])
@@ -548,3 +550,38 @@ model FeatureFlag {
   @@index([key])
   @@index([deletedAt])
 }
+
+model Conversation {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?   @db.Uuid
+  auditId        String    @db.Uuid
+  title          String
+  isPinned       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  // Relationships
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  audit        Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([organizationId])
+  @@index([auditId])
+  @@index([deletedAt])
+}
+
+model Message {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @db.Uuid
+  sender         String       // "USER" | "COPILOT"
+  content        String
+  createdAt      DateTime     @default(now())
+
+  // Relationships
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+

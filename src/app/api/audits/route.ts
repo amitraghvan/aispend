@@ -11,7 +11,6 @@ import { apiSuccess, apiCreated, apiValidationError, apiServerError, parsePagina
 import { auditOrchestrator } from '@/features/audit/services/AuditOrchestrator';
 import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger/logger';
 
 const log = logger.forService('audit-api');
@@ -101,40 +100,6 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    
-    // In mock mode without a real session, check if we're simulating mock dashboard data
-    if (!isSupabaseConfigured() && !session) {
-      // Return a simulated list of mock audits for the demo UI
-      return apiSuccess([
-        {
-          id: 'mock-audit-1',
-          status: 'COMPLETED',
-          totalSpend: 1250,
-          potentialSavings: 320,
-          healthScore: 78,
-          healthGrade: 'B',
-          createdAt: new Date(Date.now() - 3600000 * 24 * 5).toISOString(),
-          itemCount: 4,
-          toolCount: 3,
-        },
-        {
-          id: 'mock-audit-2',
-          status: 'COMPLETED',
-          totalSpend: 1540,
-          potentialSavings: 540,
-          healthScore: 64,
-          healthGrade: 'C',
-          createdAt: new Date(Date.now() - 3600000 * 24 * 15).toISOString(),
-          itemCount: 5,
-          toolCount: 4,
-        }
-      ], {
-        page: 1,
-        pageSize: 10,
-        total: 2,
-        totalPages: 1,
-      });
-    }
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

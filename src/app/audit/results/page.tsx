@@ -18,9 +18,11 @@ import {
   ChevronDown, 
   ChevronUp, 
   Target,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
+import CopilotDrawer from '@/components/CopilotDrawer';
 import { 
   BarChart, 
   Bar, 
@@ -558,6 +560,7 @@ function ResultsInner() {
   const searchParams = useSearchParams();
   const raw = searchParams.get('data');
   const auditIdParam = searchParams.get('auditId');
+  const [showCopilot, setShowCopilot] = useState(false);
 
   const [data, setData] = useState<AuditResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -741,7 +744,7 @@ function ResultsInner() {
                 <Sparkles className="w-5 h-5 text-purple-500 animate-pulse" />
                 AI CFO Executive Insights
               </h2>
-              <Badge variant="primary" className="bg-purple-600 text-white font-semibold">Claude Sonnet 3.5</Badge>
+              <Badge variant="primary" className="bg-purple-600 text-white font-semibold">Groq Llama 3.3</Badge>
             </div>
 
             {aiLoading && (
@@ -883,6 +886,24 @@ function ResultsInner() {
           </div>
         </FadeIn>
       </main>
+
+      {/* Floating Copilot Trigger Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => setShowCopilot(true)}
+          className="flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-2xl hover:scale-105 transition-all duration-300 font-semibold text-xs tracking-wide cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
+          <MessageSquare className="w-4 h-4" />
+          Ask Copilot
+        </button>
+      </div>
+
+      {/* Copilot Drawer */}
+      <CopilotDrawer
+        isOpen={showCopilot}
+        onClose={() => setShowCopilot(false)}
+        auditId={data.auditId}
+      />
     </div>
   );
 }

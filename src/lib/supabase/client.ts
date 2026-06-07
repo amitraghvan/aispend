@@ -16,8 +16,7 @@ export function getSupabaseBrowserClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
   if (!url || !key) {
-    // Return null — caller must handle mock mode
-    return null;
+    throw new Error('Supabase configuration missing');
   }
 
   _client = createBrowserClient(url, key);
@@ -28,5 +27,10 @@ export function getSupabaseBrowserClient() {
  * Check if Supabase is configured.
  */
 export function isSupabaseConfigured(): boolean {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  if (!url || !key) {
+    throw new Error('Supabase configuration missing');
+  }
+  return true;
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button, Card, Input } from '@/components/ui';
 import { Mail, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -18,15 +18,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      if (!isSupabaseConfigured()) {
-        // Mock mode
-        setSent(true);
-        return;
-      }
-
       const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error('Authentication service unavailable');
-
       const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export interface AuthContextType {
   user: {
@@ -33,28 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchSession = async () => {
     try {
-      if (!isSupabaseConfigured()) {
-        // Mock mode: retrieve session from localStorage
-        const mockSessionStr = localStorage.getItem('aispend_mock_session');
-        if (mockSessionStr) {
-          const mockSession = JSON.parse(mockSessionStr);
-          setUser({
-            id: mockSession.id,
-            email: mockSession.email,
-            name: mockSession.name,
-            avatarUrl: mockSession.avatarUrl ?? null,
-          });
-          setOrganization(mockSession.organization);
-          setRole(mockSession.role);
-        } else {
-          setUser(null);
-          setOrganization(null);
-          setRole(null);
-        }
-        setLoading(false);
-        return;
-      }
-
       // Production mode: fetch session via API
       const res = await fetch('/api/auth/session');
       if (res.ok) {
@@ -88,19 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      if (!isSupabaseConfigured()) {
-        localStorage.removeItem('aispend_mock_session');
-        setUser(null);
-        setOrganization(null);
-        setRole(null);
-        router.push('/login');
-        return;
-      }
-
       const supabase = getSupabaseBrowserClient();
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
+      await supabase.auth.signOut();
       setUser(null);
       setOrganization(null);
       setRole(null);

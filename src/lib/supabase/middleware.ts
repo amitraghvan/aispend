@@ -15,8 +15,7 @@ export async function updateSupabaseSession(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
   if (!url || !key) {
-    // Supabase not configured — pass through
-    return { response, user: null };
+    throw new Error('Supabase configuration missing');
   }
 
   const supabase = createServerClient(url, key, {

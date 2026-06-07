@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button, Card, Input } from '@/components/ui';
 import { ArrowRight, Mail, Lock, User, Building2, AlertCircle } from 'lucide-react';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
-  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,27 +30,7 @@ export default function SignupPage() {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
 
-      if (!isSupabaseConfigured()) {
-        // Mock mode: simulate successful signup
-        const mockUser = {
-          id: `mock-${Date.now()}`,
-          email,
-          name,
-          organization: {
-            id: `mock-org-${Date.now()}`,
-            name: companyName || `${name}'s Organization`,
-            slug: orgSlug,
-          },
-          role: 'OWNER' as const,
-        };
-        localStorage.setItem('aispend_mock_session', JSON.stringify(mockUser));
-        router.push('/dashboard');
-        return;
-      }
-
       const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error('Authentication service unavailable');
-
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -191,12 +169,6 @@ export default function SignupPage() {
           Sign in
         </Link>
       </div>
-
-      {!isSupabaseConfigured() && (
-        <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 text-xs text-center">
-          Demo mode — Supabase not configured. Signup is simulated.
-        </div>
-      )}
     </Card>
   );
 }
