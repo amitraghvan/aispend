@@ -116,7 +116,7 @@ describe('Auth UX Integrations', () => {
       
       expect(screen.getByText('Go to Dashboard')).toBeTruthy();
       expect(screen.getByText('Start New Audit')).toBeTruthy();
-      expect(screen.queryByText('See How It Works')).toBeNull();
+      expect(screen.queryByText('Quick Estimator')).toBeNull();
     });
 
     it('shows Start Free Audit when unauthenticated', () => {
@@ -132,7 +132,7 @@ describe('Auth UX Integrations', () => {
       render(<HomePage />);
       
       expect(screen.getAllByText('Start Free Audit').length).toBeGreaterThan(0);
-      expect(screen.getByText('See How It Works')).toBeTruthy();
+      expect(screen.getByText('Quick Estimator')).toBeTruthy();
       expect(screen.queryByText('Go to Dashboard')).toBeNull();
     });
   });
